@@ -9,7 +9,8 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
-URL = "http://127.0.0.1:3100/"
+DEFAULT_URL = "http://127.0.0.1:3100/"
+URL = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_URL
 
 
 def main() -> int:
@@ -23,27 +24,26 @@ def main() -> int:
         page.goto(URL, wait_until="networkidle", timeout=120_000)
 
         # The model loads, then the first plan runs automatically.
-        page.wait_for_selector('button[aria-pressed]', timeout=180_000)
+        page.wait_for_selector("[data-journey-card]", timeout=180_000)
         page.wait_for_timeout(2500)
 
-        cards = page.locator('button[aria-pressed]').count()
+        cards = page.locator("[data-journey-card]").count()
         print(f"journey cards: {cards}")
 
         canvas = page.locator("canvas.maplibregl-canvas").count()
         print(f"map canvas: {canvas}")
 
-        first = page.locator('button[aria-pressed]').first
+        first = page.locator("[data-journey-card]").first
         print("first card:", first.inner_text().replace("\n", " | ").encode("ascii", "replace").decode())
 
-        # Preference tabs must re-rank.
-        page.get_by_role("tab", name="Less crowded").click()
+        # Preference controls must re-rank.
+        page.get_by_role("button", name="Calmer", exact=True).click()
         page.wait_for_timeout(2500)
-        print(f"cards after tab switch: {page.locator('button[aria-pressed]').count()}")
+        print(f"cards after preference switch: {page.locator('[data-journey-card]').count()}")
 
         # Crowding explorer must render bars.
-        page.wait_for_selector("text=Crowding along a route", timeout=30_000)
-        bars = page.locator("text=Crowding along a route").count()
-        print(f"crowding explorer present: {bars > 0}")
+        page.wait_for_selector("text=Where the bus fills up", timeout=30_000)
+        print("crowding explorer present: True")
 
         page.screenshot(path="data/artifacts/web.png", full_page=False)
         print("screenshot: data/artifacts/web.png")

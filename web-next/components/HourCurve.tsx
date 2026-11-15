@@ -22,7 +22,7 @@ export default function HourCurve({
   height?: number;
 }) {
   const { path, area, min, max, peakHour, quietHour } = useMemo(() => {
-    const w = 240;
+    const w = 640;
     const h = height;
     const pad = 10;
     if (!values.length) {
@@ -50,7 +50,7 @@ export default function HourCurve({
     return { path, area, min, max, peakHour, quietHour };
   }, [values, height]);
 
-  const w = 240;
+  const w = 640;
   const h = height;
   const pad = 10;
   const xFor = (hour: number) => pad + (hour / 23) * (w - pad * 2);

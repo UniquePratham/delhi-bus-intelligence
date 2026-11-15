@@ -53,6 +53,12 @@ export default function Map3D({
   const map = useRef<MlMap | null>(null);
   const [ready, setReady] = useState(false);
 
+  // `onLoaded` is typically an inline arrow, so its identity changes on every
+  // render. Holding it in a ref keeps the map-init effect from tearing the map
+  // down and rebuilding it (which reset the camera and dropped the route).
+  const loadedCb = useRef(onLoaded);
+  loadedCb.current = onLoaded;
+
   useEffect(() => {
     if (!holder.current || map.current) return;
 
@@ -120,7 +126,7 @@ export default function Map3D({
               type: "fill-extrusion",
               source: vector,
               "source-layer": "buildings",
-              minzoom: 12,
+              minzoom: 11,
               paint: {
                 "fill-extrusion-color": [
                   "interpolate",
@@ -135,8 +141,8 @@ export default function Map3D({
                   "interpolate",
                   ["linear"],
                   ["zoom"],
-                  12, 0,
-                  13.5, ["coalesce", ["get", "height"], 8],
+                  12, ["*", 1.6, ["coalesce", ["get", "height"], 8]],
+                  13, ["coalesce", ["get", "height"], 8],
                 ],
                 "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
                 "fill-extrusion-opacity": 0.95,
@@ -151,7 +157,7 @@ export default function Map3D({
       }
 
       setReady(true);
-      onLoaded?.();
+      loadedCb.current?.();
     });
 
     map.current = m;
@@ -159,7 +165,7 @@ export default function Map3D({
       m.remove();
       map.current = null;
     };
-  }, [onLoaded]);
+  }, []);
 
   // Route geometry. Redraws whenever the journey or the style changes.
   const drawRoute = useCallback(() => {
@@ -263,7 +269,17 @@ export default function Map3D({
       (acc, c) => acc.extend(c),
       new maplibregl.LngLatBounds(flat[0], flat[0])
     );
-    m.jumpTo({ center: bounds.getCenter(), zoom: 13.4, pitch: 62, bearing: -22 });
+    // A pitched camera compresses the lower half of the viewport, so the
+    // bottom padding has to be larger than the top or the destination marker
+    // falls off-screen.
+    m.fitBounds(bounds, {
+      padding: { top: 60, bottom: 170, left: 70, right: 70 },
+      maxZoom: 13.4,
+      duration: 900,
+      pitch: 52,
+      bearing: -22,
+    });
+    m.setMinZoom(11);
   }, [journey]);
 
   useEffect(() => {

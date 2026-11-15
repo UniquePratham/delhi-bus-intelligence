@@ -391,6 +391,7 @@ export default function Page() {
                           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                           type="button"
                           onClick={() => setPick(i)}
+                          data-journey-card
                           aria-pressed={pick === i}
                           className={`group w-full border-l-2 py-3 pl-3 pr-2 text-left transition-colors ${
                             pick === i
