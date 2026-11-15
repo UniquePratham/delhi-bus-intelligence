@@ -1,0 +1,34 @@
+# Data and build artifacts are never committed.
+data/raw/
+data/processed/
+data/artifacts/
+*.7z
+*.zip
+*.db
+*.db-shm
+*.db-wal
+*.parquet
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+
+# Local env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db

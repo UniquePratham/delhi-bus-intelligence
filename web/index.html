@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Delhi Bus Journey Planner</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --line: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #9aa3b2;
+    --accent: #4f9cf9;
+    --good: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --unknown: #6e7681;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: grid; grid-template-columns: 420px 1fr; height: 100vh;
+  }
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    #map { height: 45vh; }
+  }
+  aside {
+    background: var(--panel); border-right: 1px solid var(--line);
+    display: grid;
+    grid-template-rows: auto auto auto auto 1fr;
+    overflow: hidden;
+    height: 100vh;
+    min-height: 0;
+  }
+  header { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 16px; margin: 0 0 2px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .banner {
+    margin: 10px 18px 0; padding: 8px 10px; border-radius: 6px;
+    background: rgba(210,153,34,.12); border: 1px solid rgba(210,153,34,.35);
+    color: #e3b341; font-size: 12px;
+  }
+  form { padding: 14px 18px; display: grid; gap: 10px; border-bottom: 1px solid var(--line); }
+  label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  input, select, button {
+    font: inherit; color: var(--text); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button.primary {
+    background: var(--accent); border-color: var(--accent); color: #06121f;
+    font-weight: 600; cursor: pointer;
+  }
+  button.primary:disabled { opacity: .55; cursor: progress; }
+  .tabs {
+    display: flex; gap: 6px; padding: 12px 18px;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    position: relative; z-index: 2;
+  }
+  .tab {
+    flex: 1; padding: 7px 8px; text-align: center; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2);
+    font-size: 12px; color: var(--muted);
+  }
+  .tab[aria-selected="true"] { background: rgba(79,156,249,.15); border-color: var(--accent); color: var(--text); }
+  #results { overflow-y: auto; padding: 12px 18px 24px; min-height: 0; }
+  .card {
+    border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2);
+    padding: 12px; margin-bottom: 10px; cursor: pointer;
+    overflow: hidden;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .dur { font-size: 20px; font-weight: 650; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  .chip.seats_available { color: var(--good); border-color: rgba(63,185,80,.4); background: rgba(63,185,80,.1); }
+  .chip.standing_room { color: var(--warn); border-color: rgba(210,153,34,.4); background: rgba(210,153,34,.1); }
+  .chip.crowded { color: var(--bad); border-color: rgba(248,81,73,.4); background: rgba(248,81,73,.1); }
+  .chip.unknown { color: var(--unknown); }
+  .legs { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; display: none; }
+  .card.selected .legs { display: block; }
+  .leg { display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; padding: 4px 0; font-size: 12px; }
+  .leg .kind { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: .05em; }
+  .leg .route { color: var(--accent); font-weight: 600; }
+  .warn { color: var(--warn); font-size: 11px; margin-top: 6px; }
+  .empty { color: var(--muted); text-align: center; padding: 30px 10px; font-size: 13px; }
+  #map { height: 100%; background: #0b0d11; }
+  .leaflet-container { background: #0b0d11; }
+  /* Darken the basemap so route colours stay legible on a dark UI. */
+  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
+  .legend {
+    position: absolute; bottom: 14px; right: 14px; z-index: 500;
+    background: rgba(23,26,33,.94); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 12px; font-size: 11px; color: var(--muted);
+  }
+  .legend b { color: var(--text); display: block; margin-bottom: 4px; font-size: 11px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>Delhi Bus Journey Planner</h1>
+    <div class="sub">Travel times from bus GPS · crowding from ticketing</div>
+  </header>
+  <div class="banner">
+    Historical October 2026 data — not a live feed. Estimates show how long a
+    trip <em>usually</em> takes at this hour.
+  </div>
+
+  <form id="form">
+    <div>
+      <label for="from">From</label>
+      <input id="from" list="stops" value="Kashmere Gate ISBT" required />
+    </div>
+    <div>
+      <label for="to">To</label>
+      <input id="to" list="stops" value="Nehru Place" required />
+    </div>
+    <datalist id="stops"></datalist>
+    <div class="row">
+      <div>
+        <label for="date">Date</label>
+        <input id="date" type="date" value="2026-10-15" required />
+      </div>
+      <div>
+        <label for="time">Depart</label>
+        <input id="time" type="time" value="08:30" required />
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="transfers">Max changes</label>
+        <select id="transfers">
+          <option>0</option><option>1</option><option selected>2</option><option>3</option>
+        </select>
+      </div>
+      <div>
+        <label for="alts">Options</label>
+        <select id="alts">
+          <option>2</option><option selected>3</option><option>4</option>
+        </select>
+      </div>
+    </div>
+    <button class="primary" id="go" type="submit">Plan journey</button>
+  </form>
+
+  <div class="tabs" role="tablist">
+    <div class="tab" role="tab" data-pref="fastest" aria-selected="false">Fastest</div>
+    <div class="tab" role="tab" data-pref="balanced" aria-selected="true">Balanced</div>
+    <div class="tab" role="tab" data-pref="less_crowded" aria-selected="false">Less crowded</div>
+  </div>
+
+  <div id="results"><div class="empty">Enter two places and plan a journey.</div></div>
+</aside>
+
+<div id="map"></div>
+<div class="legend">
+  <b>Crowding</b>
+  <div><span class="swatch" style="background:#3fb950"></span>Seats available</div>
+  <div><span class="swatch" style="background:#d29922"></span>Standing room</div>
+  <div><span class="swatch" style="background:#f85149"></span>Crowded</div>
+  <div><span class="swatch" style="background:#6e7681"></span>Unknown</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = location.origin;
+const map = L.map('map', { zoomControl: true }).setView([28.6448, 77.2167], 11);
+// OpenStreetMap standard tiles, darkened with a CSS filter so the route
+// colours stay legible. CARTO's basemaps now require an API key.
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19,
+}).addTo(map);
+
+const COLORS = {
+  seats_available: '#3fb950',
+  standing_room: '#d29922',
+  crowded: '#f85149',
+  unknown: '#6e7681',
+};
+
+let pref = 'balanced';
+let lastResponse = null;
+let layers = [];
+
+const $ = (id) => document.getElementById(id);
+
+function clearLayers() {
+  layers.forEach((l) => map.removeLayer(l));
+  layers = [];
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function chipClass(cat) {
+  return ['seats_available', 'standing_room', 'crowded'].includes(cat) ? cat : 'unknown';
+}
+
+function render(res) {
+  lastResponse = res;
+  const box = $('results');
+  if (!res.journeys.length) {
+    box.innerHTML = `<div class="empty">${res.warnings[0] || 'No journeys found.'}</div>`;
+    clearLayers();
+    return;
+  }
+  box.innerHTML = res.journeys.map((j, i) => {
+    const cs = j.crowding_summary;
+    const known = cs.legs_known ?? 0;
+    const total = cs.legs_total ?? 0;
+    return `
+    <div class="card ${i === 0 ? 'selected' : ''}" data-i="${i}">
+      <div class="card-top">
+        <div>
+          <div class="dur">${Math.round(j.duration_minutes)} min</div>
+          <div class="meta">${fmtTime(j.legs[0].depart)} → ${fmtTime(j.arrive)}</div>
+        </div>
+        <div class="meta" style="text-align:right">
+          ${j.transfers} change${j.transfers === 1 ? '' : 's'}<br>
+          ${Math.round(j.walk_minutes)} min walk
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip ${chipClass(cs.category)}">${(cs.category || 'unknown').replace(/_/g, ' ')}</span>
+        <span class="chip">${known}/${total} legs known</span>
+        ${j.legs.filter(l => l.kind === 'bus').map(l => `<span class="chip">${l.route}</span>`).join('')}
+      </div>
+      ${j.warnings.map(w => `<div class="warn">${w}</div>`).join('')}
+      <div class="legs">
+        ${j.legs.map(l => `
+          <div class="leg">
+            <span class="kind">${l.kind}</span>
+            <span>${l.from_name} → ${l.to_name}${l.route ? ` <span class="route">${l.route}</span>` : ''}</span>
+            <span class="meta">${Math.round(l.duration_minutes)}m</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  box.querySelectorAll('.card').forEach((el) => {
+    el.addEventListener('click', () => {
+      box.querySelectorAll('.card').forEach((c) => c.classList.remove('selected'));
+      el.classList.add('selected');
+      drawMap(res.journeys[+el.dataset.i]);
+    });
+  });
+  drawMap(res.journeys[0]);
+}
+
+function drawMap(journey) {
+  clearLayers();
+  const pts = [];
+  journey.legs.forEach((leg) => {
+    if (leg.kind !== 'bus') return;
+    if (leg.from_lat == null || leg.to_lat == null) return;
+    const cat = leg.crowding?.category || 'unknown';
+    const color = COLORS[cat] || COLORS.unknown;
+    const a = [leg.from_lat, leg.from_lon];
+    const b = [leg.to_lat, leg.to_lon];
+    const line = L.polyline([a, b], {
+      color, weight: 5, opacity: 0.9, dashArray: cat === 'unknown' ? '6 6' : null,
+    }).addTo(map);
+    line.bindTooltip(`${leg.route} · ${cat.replace(/_/g, ' ')}`);
+    layers.push(line);
+    pts.push(a, b);
+  });
+  journey.legs.forEach((leg) => {
+    if (leg.kind !== 'walk') return;
+    if (leg.from_lat == null || leg.to_lat == null) return;
+    const a = [leg.from_lat, leg.from_lon];
+    const b = [leg.to_lat, leg.to_lon];
+    const line = L.polyline([a, b], {
+      color: '#8b949e', weight: 3, opacity: 0.8, dashArray: '2 6',
+    }).addTo(map);
+    layers.push(line);
+    pts.push(a, b);
+  });
+  if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.2));
+}
+
+async function loadStops() {
+  // Populate the datalist from the network so names autocomplete.
+  try {
+    const r = await fetch(`${API}/v1/metadata`);
+    const m = await r.json();
+    $('stops').innerHTML = '';
+  } catch (e) { /* non-fatal */ }
+}
+
+async function plan() {
+  const btn = $('go');
+  btn.disabled = true;
+  btn.textContent = 'Planning…';
+  const body = {
+    origin: { name: $('from').value },
+    destination: { name: $('to').value },
+    departure_time: `${$('date').value}T${$('time').value}:00+05:30`,
+    max_transfers: +$('transfers').value,
+    alternatives: +$('alts').value,
+    preference: pref,
+    crowding_weight: 0.35,
+  };
+  try {
+    const r = await fetch(`${API}/v1/journeys/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      $('results').innerHTML = `<div class="empty">${err.detail || 'Request failed.'}</div>`;
+      return;
+    }
+    render(await r.json());
+  } catch (e) {
+    $('results').innerHTML = `<div class="empty">Could not reach the API.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Plan journey';
+  }
+}
+
+$('form').addEventListener('submit', (e) => { e.preventDefault(); plan(); });
+document.querySelectorAll('.tab').forEach((t) => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', 'false'));
+    t.setAttribute('aria-selected', 'true');
+    pref = t.dataset.pref;
+    if (lastResponse) plan();
+  });
+});
+
+loadStops();
+plan();
+</script>
+</body>
+</html>

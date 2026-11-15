@@ -1,0 +1,9 @@
+{
+  "origin": { "name": "Kashmere Gate ISBT" },
+  "destination": { "name": "Nehru Place" },
+  "departure_time": "2026-10-15T08:30:00+05:30",
+  "max_transfers": 2,
+  "alternatives": 3,
+  "preference": "balanced",
+  "crowding_weight": 0.35
+}

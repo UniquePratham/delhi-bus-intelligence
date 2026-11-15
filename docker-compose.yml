@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8077:8077"
+    volumes:
+      # The built databases are mounted read-only; the image does not contain
+      # data, so the pipeline must have been run first.
+      - ./data/processed:/app/data/processed:ro
+    environment:
+      - PYTHONPATH=/app/src
+    restart: unless-stopped
