@@ -61,6 +61,32 @@ first so `data/processed/` exists:
 docker compose up --build
 ```
 
+## Evaluator website
+
+The static evaluator website is in [`web-next`](web-next). It includes the
+browser-side journey planner, 3D map, traffic evidence, and crowding explorer;
+it does not require the Python API or the large DuckDB files.
+
+Run it locally:
+
+```bash
+cd web-next
+npm install
+npm run dev
+# open http://localhost:3000
+```
+
+Deploy it to Vercel from an authenticated Vercel CLI session:
+
+```bash
+cd web-next
+npx vercel login
+npx vercel --prod
+```
+
+The deployment uses the checked-in static model artifacts under
+[`web-next/public/data`](web-next/public/data) and caches them immutably.
+
 ## API
 
 | Endpoint | Purpose |
