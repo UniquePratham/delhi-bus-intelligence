@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { Planner, type Journey, type Band } from "@/lib/planner";
-import { setStationCoords, setRoutePath } from "@/components/Map3D";
+import { setStationCoords, setRoutePath, setPairGeometry } from "@/components/Map3D";
 import HourCurve from "@/components/HourCurve";
 import CrowdStrip from "@/components/CrowdStrip";
 
@@ -84,6 +84,7 @@ export default function Page() {
           return [lon, lat];
         });
         setRoutePath((routeId, from, to) => p.routeStations(routeId, from, to));
+        setPairGeometry((from, to) => p.pairGeometry(from, to));
         setPlanner(p);
         setLoadPct(100);
       })

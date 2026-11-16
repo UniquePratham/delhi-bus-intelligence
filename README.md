@@ -151,8 +151,12 @@ Read [technical-note.md](docs/technical-note.md) for the full method.
 * **Crowding coverage is 63% of routes**, and 87% of cells are low confidence.
   Missing values are reported as `unknown`, never as "not crowded". In practice
   72% of bus legs in a typical journey do carry an estimate.
-* **No route geometry.** `shapes.txt` is absent from the feed, so map lines are
-  stop-to-stop, not road-following.
+* **Route geometry is reconstructed, not published.** `shapes.txt` is absent
+  from the feed, so map lines are rebuilt from GPS traces: each station pair's
+  path is the median lateral offset of observed pings, binned along the chord.
+  This covers 10,080 of 12,352 pairs (82%); the rest fall back to a straight
+  chord. Median path/chord ratio is 1.04 and implied speed is 21.7 km/h, so the
+  lines follow roads rather than cutting across the city.
 * **No Google Maps comparison.** Its terms forbid scraping, and a car route is
   not a bus route. Validation uses 400 real observed bus trips instead.
 
@@ -243,5 +247,7 @@ python scripts/ui_smoke.py            # map UI renders in a real browser
 | Segment MAE, baselines | `python -m dbi.traffic.evaluate` |
 | Journey MAE vs real trips | `python -m dbi.journey.validate --sample 400` |
 | Crowding pattern checks | `python -m dbi.crowding.evaluate` |
+| Map route geometry | `python scripts/build_route_geometry.py` |
+| Geometry plausibility | `python scripts/validate_geometry.py` |
 
 Outputs land in `data/artifacts/`.

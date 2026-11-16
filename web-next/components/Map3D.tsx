@@ -27,15 +27,18 @@ let ROUTE_PATH: ((routeId: number, from: number, to: number) => number[]) | null
 export function setRoutePath(fn: (routeId: number, from: number, to: number) => number[]) {
   ROUTE_PATH = fn;
 }
-function routePath(routeId: number | null, from: number, to: number): [number, number][] {
+function routePath(routeId: number | null, from: number, to: number): number[] {
   if (routeId === null || !ROUTE_PATH) return [];
-  const ids = ROUTE_PATH(routeId, from, to);
-  const out: [number, number][] = [];
-  for (const id of ids) {
-    const c = coord(id);
-    if (c) out.push(c);
-  }
-  return out;
+  return ROUTE_PATH(routeId, from, to);
+}
+
+// Road-following geometry per station pair, reconstructed from GPS traces.
+let PAIR_GEOM: ((from: number, to: number) => [number, number][]) | null = null;
+export function setPairGeometry(fn: (from: number, to: number) => [number, number][]) {
+  PAIR_GEOM = fn;
+}
+function pairGeom(from: number, to: number): [number, number][] {
+  return PAIR_GEOM ? PAIR_GEOM(from, to) : [];
 }
 
 export default function Map3D({
@@ -168,9 +171,21 @@ export default function Map3D({
   }, []);
 
   // Route geometry. Redraws whenever the journey or the style changes.
+  const renderedKey = useRef<string | null>(null);
+
   const drawRoute = useCallback(() => {
     const m = map.current;
-    if (!m || !m.isStyleLoaded()) return;
+    if (!m) return;
+    // `isStyleLoaded()` is false while basemap tiles are still arriving, which
+    // is exactly when the first journey lands. Bail out and let the idle
+    // listener retry rather than dropping the route for good.
+    if (!m.isStyleLoaded()) return;
+    if (!journey) return;
+
+    const key = journey.legs
+      .map((l) => `${l.routeId}:${l.fromStation}:${l.toStation}`)
+      .join("|");
+    if (renderedKey.current === key) return;
 
     for (const id of ["rt-glow", "rt-line", "rt-pts"]) {
       if (m.getLayer(id)) m.removeLayer(id);
@@ -178,33 +193,45 @@ export default function Map3D({
     for (const id of ["rt", "rtp"]) {
       if (m.getSource(id)) m.removeSource(id);
     }
-    if (!journey) return;
 
     const segments: [number, number][][] = [];
     const points: GeoJSON.Feature[] = [];
     for (const leg of journey.legs) {
       if (leg.fromStation === null || leg.toStation === null) continue;
-      // Draw the full stop sequence of the ride, not just its endpoints, so
-      // the line follows the route instead of cutting across the city.
-      const path = routePath(leg.routeId, leg.fromStation, leg.toStation);
-      if (path.length >= 2) {
-        segments.push(path);
-        for (const c of path) {
-          points.push({
-            type: "Feature",
-            properties: { band: leg.crowding?.band ?? "unknown" },
-            geometry: { type: "Point", coordinates: c },
-          });
+
+      // Walk the ride's stop sequence and draw each consecutive pair along its
+      // observed road geometry. A pair with no trace falls back to the chord,
+      // so the line is always continuous.
+      const stops = routePath(leg.routeId, leg.fromStation, leg.toStation);
+      const seq = stops.length >= 2 ? stops : [leg.fromStation, leg.toStation];
+      const path: [number, number][] = [];
+      for (let i = 0; i < seq.length - 1; i++) {
+        const a = seq[i];
+        const b = seq[i + 1];
+        const geom = pairGeom(a, b);
+        if (geom.length >= 2) {
+          // Skip the first point on continuation to avoid duplicate vertices.
+          for (let k = path.length ? 1 : 0; k < geom.length; k++) path.push(geom[k]);
+        } else {
+          const ca = coord(a);
+          const cb = coord(b);
+          if (ca && cb) {
+            if (!path.length) path.push(ca);
+            path.push(cb);
+          }
         }
-      } else {
-        const a = coord(leg.fromStation);
-        const b = coord(leg.toStation);
-        if (!a || !b) continue;
-        segments.push([a, b]);
+      }
+      if (path.length < 2) continue;
+
+      segments.push(path);
+      // Mark the stations the ride actually calls at, not every road vertex.
+      for (const sid of seq) {
+        const c = coord(sid);
+        if (!c) continue;
         points.push({
           type: "Feature",
           properties: { band: leg.crowding?.band ?? "unknown" },
-          geometry: { type: "Point", coordinates: a },
+          geometry: { type: "Point", coordinates: c },
         });
       }
     }
@@ -261,9 +288,9 @@ export default function Map3D({
       },
     });
 
-    // Frame the route, but keep the camera close enough that the extruded
-    // buildings are visible. A long trip would otherwise fit at zoom ~11,
-    // below the extrusion's minzoom, and the city would look flat.
+    // Frame the route. `fitBounds` ignores `pitch`/`bearing` and clamps to
+    // minZoom, which left the camera stuck at the floor. Compute the camera
+    // for the bounds, then apply the tilt explicitly.
     const flat = segments.flat();
     const bounds = flat.reduce(
       (acc, c) => acc.extend(c),
@@ -272,31 +299,40 @@ export default function Map3D({
     // A pitched camera compresses the lower half of the viewport, so the
     // bottom padding has to be larger than the top or the destination marker
     // falls off-screen.
-    m.fitBounds(bounds, {
+    const cam = m.cameraForBounds(bounds, {
       padding: { top: 60, bottom: 170, left: 70, right: 70 },
       maxZoom: 13.4,
-      duration: 900,
-      pitch: 52,
-      bearing: -22,
     });
+    if (cam && cam.center) {
+      m.easeTo({
+        center: cam.center,
+        zoom: Math.max(11.5, cam.zoom ?? 12),
+        pitch: 52,
+        bearing: -22,
+        duration: 900,
+      });
+    }
     m.setMinZoom(11);
+    renderedKey.current = key;
   }, [journey]);
 
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
     drawRoute();
-    // The style can finish loading after the first draw. Redraw once, then
-    // stop listening: an `idle` handler that redraws forever would remove and
-    // re-add the layers on every frame.
-    const once = () => {
+    // The style is often still loading when the first journey arrives, and
+    // `idle` will not fire again once the map is already idle. Poll until the
+    // route is actually rendered, then stop. `renderedKey` makes each attempt
+    // a no-op once it has succeeded, and the attempt cap bounds the work.
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
       drawRoute();
-      m.off("idle", once);
-    };
-    m.on("idle", once);
-    return () => {
-      m.off("idle", once);
-    };
+      if (renderedKey.current !== null || attempts > 60) {
+        window.clearInterval(timer);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
   }, [drawRoute, ready]);
 
   // Origin and destination markers.

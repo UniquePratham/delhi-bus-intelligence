@@ -102,9 +102,10 @@ download endpoint returns HTTP 504.
 | `stop_times.txt` | 3,724,320 |
 | `calendar.txt` | 1 service, valid 2024-01-01 to 2027-01-01 |
 
-`shapes.txt` is **absent** from this feed, so route geometry is not available.
-The project works from stop sequences instead, which is sufficient for
-stop-to-stop travel times.
+`shapes.txt` is **absent** from this feed, so published route geometry is not
+available. The project works from stop sequences for travel times, and
+reconstructs road-following polylines from GPS traces for the map (see
+`scripts/build_route_geometry.py`).
 
 ### Stop IDs are platform-level, not station-level
 
@@ -185,8 +186,8 @@ Stated plainly, because the brief asks for it:
    reported as a relative `load_index`, never as passengers or a percentage.
 2. **Route identity from GPS.** The GPS `route_id` is unusable against GTFS.
    Routes are inferred geometrically from stop passages.
-3. **Route geometry.** `shapes.txt` is absent, so paths are stop-to-stop
-   straight lines, not road-following polylines.
+3. **Route geometry.** `shapes.txt` is absent, so map paths are reconstructed
+   from GPS traces (82% of station pairs) rather than published polylines.
 4. **Live data.** Both datasets are historical October 2026 snapshots. Nothing
    in this project is a live feed, and the UI says so.
 5. **Weekday coverage.** Eleven GPS days are processed: a full week (Mon 5 Oct

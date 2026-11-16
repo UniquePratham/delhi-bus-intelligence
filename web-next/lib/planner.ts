@@ -119,6 +119,12 @@ export class Planner {
   private pairIndex!: Map<number, number>;
   private routeIndex!: Map<number, number>;
 
+  private geomIndex!: Map<number, number>;
+  private geomFrom!: Int32Array;
+  private geomTo!: Int32Array;
+  private geomOff!: Uint32Array;
+  private geomXY!: Float32Array;
+
   static async load(base = "/data"): Promise<Planner> {
     const p = new Planner();
     const [
@@ -145,6 +151,10 @@ export class Planner {
       crowdBand,
       crowdConf,
       crowdLoad,
+      geomFrom,
+      geomTo,
+      geomOff,
+      geomXY,
     ] = await Promise.all([
       fetch(`${base}/stations.json`).then((r) => r.json()),
       fetch(`${base}/routes.json`).then((r) => r.json()),
@@ -169,6 +179,10 @@ export class Planner {
       fetchBin(`${base}/crowd_band.bin`),
       fetchBin(`${base}/crowd_conf.bin`),
       fetchBin(`${base}/crowd_load.bin`),
+      fetchBin(`${base}/geom_from.bin`),
+      fetchBin(`${base}/geom_to.bin`),
+      fetchBin(`${base}/geom_off.bin`),
+      fetchBin(`${base}/geom_xy.bin`),
     ]);
 
     p.stations = stationsJson;
@@ -191,6 +205,15 @@ export class Planner {
     p.crowdBand = new Uint8Array(crowdBand);
     p.crowdConf = new Uint8Array(crowdConf);
     p.crowdLoad = new Uint8Array(crowdLoad);
+    p.geomFrom = new Int32Array(geomFrom);
+    p.geomTo = new Int32Array(geomTo);
+    p.geomOff = new Uint32Array(geomOff);
+    p.geomXY = new Float32Array(geomXY);
+
+    p.geomIndex = new Map();
+    for (let i = 0; i < p.geomFrom.length; i++) {
+      p.geomIndex.set(p.geomFrom[i] * 65536 + p.geomTo[i], i);
+    }
 
     p.pairIndex = new Map();
     for (let i = 0; i < p.pairFrom.length; i++) {
@@ -230,6 +253,31 @@ export class Planner {
     return Array.from(this.patSta.subarray(i0, i1 + 1));
   }
 
+  /**
+   * Road-following polyline between two adjacent stations, as [lon, lat].
+   *
+   * Reconstructed from real GPS traces (scripts/build_route_geometry.py), so
+   * the line follows the road instead of cutting across the city. Returns an
+   * empty array when the pair has no observed trace; callers fall back to the
+   * straight chord.
+   *
+   * Takes station *indices* (the planner's internal 0..n-1 space), not station
+   * IDs, and translates before lookup.
+   */
+  pairGeometry(fromIdx: number, toIdx: number): [number, number][] {
+    const from = this.stations.ids[fromIdx];
+    const to = this.stations.ids[toIdx];
+    if (from === undefined || to === undefined) return [];
+    const i = this.geomIndex.get(from * 65536 + to);
+    if (i === undefined) return [];
+    const start = this.geomOff[i];
+    const end = this.geomOff[i + 1];
+    const out: [number, number][] = [];
+    for (let k = start; k < end; k++) {
+      out.push([this.geomXY[k * 2], this.geomXY[k * 2 + 1]]);
+    }
+    return out;
+  }
   /** Nearest stations to a point, sorted by distance. */
   nearby(lat: number, lon: number, radius = MAX_WALK_M): { idx: number; dist: number }[] {
     const out: { idx: number; dist: number }[] = [];

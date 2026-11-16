@@ -173,8 +173,12 @@ but a single generic word like "Terminal" cannot link two unrelated places.
 
 ## 6. Known limitations
 
-1. **No route geometry.** `shapes.txt` is absent from the feed, so map lines are
-   stop-to-stop straight lines, not road-following polylines.
+1. **Route geometry is reconstructed.** `shapes.txt` is absent from the feed, so
+   map lines are rebuilt from GPS traces: for each station pair, pings are
+   projected onto the chord, binned by progress, and the median lateral offset
+   per bin becomes the polyline. This covers 10,080 of 12,352 pairs (82%); the
+   remainder fall back to a straight chord. Median path/chord ratio is 1.04 and
+   implied speed 21.7 km/h, which is consistent with real bus movement.
 2. **Crowding coverage.** 63% of routes have any crowding estimate, and 87% of
    cells are low confidence. 909 ticket route strings have no GTFS route at all.
 3. **No live data.** Everything is a historical October 2026 snapshot.
