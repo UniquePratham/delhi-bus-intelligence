@@ -63,7 +63,7 @@ docker compose up --build
 
 ## Evaluator website
 
-**Live: <https://web-next-mu-bay.vercel.app>**
+**Live: <https://delhi-bus-intelligence.vercel.app>**
 
 The static evaluator website is in [`web-next`](web-next). It includes the
 browser-side journey planner, 3D map, traffic evidence, and crowding explorer;
