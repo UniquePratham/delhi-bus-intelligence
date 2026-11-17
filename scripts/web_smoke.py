@@ -21,7 +21,7 @@ def main() -> int:
         page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: errors.append(str(e)))
 
-        page.goto(URL, wait_until="networkidle", timeout=120_000)
+        page.goto(URL, wait_until="domcontentloaded", timeout=120_000)
 
         # The model loads, then the first plan runs automatically.
         page.wait_for_selector("[data-journey-card]", timeout=180_000)
@@ -44,6 +44,16 @@ def main() -> int:
         # Crowding explorer must render bars.
         page.wait_for_selector("text=Where the bus fills up", timeout=30_000)
         print("crowding explorer present: True")
+
+        # The route must actually paint. The basemap source can take tens of
+        # seconds to load, and the route is only added once it has, so wait for
+        # the layer rather than a fixed delay.
+        page.wait_for_function(
+            """() => !!document.querySelector('[data-route-drawn="true"]')""",
+            timeout=120_000,
+        )
+        print("route layer present: True")
+        page.wait_for_timeout(3000)
 
         page.screenshot(path="data/artifacts/web.png", full_page=False)
         print("screenshot: data/artifacts/web.png")

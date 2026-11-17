@@ -172,13 +172,14 @@ export default function Map3D({
 
   // Route geometry. Redraws whenever the journey or the style changes.
   const renderedKey = useRef<string | null>(null);
+  const framedKey = useRef<string | null>(null);
 
   const drawRoute = useCallback(() => {
     const m = map.current;
     if (!m) return;
-    // `isStyleLoaded()` is false while basemap tiles are still arriving, which
-    // is exactly when the first journey lands. Bail out and let the idle
-    // listener retry rather than dropping the route for good.
+    // Layers added before the style finishes loading are silently dropped from
+    // the render tree, so wait for it. The retry loop below keeps calling this
+    // until the style is ready and the camera has framed the route.
     if (!m.isStyleLoaded()) return;
     if (!journey) return;
 
@@ -311,28 +312,47 @@ export default function Map3D({
         bearing: -22,
         duration: 900,
       });
+      framedKey.current = key;
     }
     m.setMinZoom(11);
     renderedKey.current = key;
+    // A stable, inspectable signal that the route is on the map. The smoke
+    // test waits on this instead of guessing at a delay.
+    if (holder.current) holder.current.dataset.routeDrawn = "true";
   }, [journey]);
 
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
     drawRoute();
-    // The style is often still loading when the first journey arrives, and
-    // `idle` will not fire again once the map is already idle. Poll until the
-    // route is actually rendered, then stop. `renderedKey` makes each attempt
-    // a no-op once it has succeeded, and the attempt cap bounds the work.
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
+
+    // The basemap source can take tens of seconds to finish loading, and
+    // `isStyleLoaded()` stays false until it does. Layers added before then are
+    // dropped, so keep trying until the route is drawn and framed. Drive it
+    // from the map's own events as well as a timer, and bound the total work.
+    const attempt = () => {
       drawRoute();
-      if (renderedKey.current !== null || attempts > 60) {
+      if (renderedKey.current !== null && framedKey.current !== null) {
+        m.off("load", attempt);
+        m.off("idle", attempt);
         window.clearInterval(timer);
       }
-    }, 250);
-    return () => window.clearInterval(timer);
+    };
+    const timer = window.setInterval(attempt, 400);
+    m.on("load", attempt);
+    m.on("idle", attempt);
+    const stop = window.setTimeout(() => {
+      window.clearInterval(timer);
+      m.off("load", attempt);
+      m.off("idle", attempt);
+    }, 120_000);
+
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+      m.off("load", attempt);
+      m.off("idle", attempt);
+    };
   }, [drawRoute, ready]);
 
   // Origin and destination markers.
