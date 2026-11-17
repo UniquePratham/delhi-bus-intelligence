@@ -187,7 +187,8 @@ Stated plainly, because the brief asks for it:
 2. **Route identity from GPS.** The GPS `route_id` is unusable against GTFS.
    Routes are inferred geometrically from stop passages.
 3. **Route geometry.** `shapes.txt` is absent, so map paths are reconstructed
-   from GPS traces (82% of station pairs) rather than published polylines.
+   from GPS traces and map-matched onto basemap road centerlines (76% of
+   station pairs) rather than published polylines.
 4. **Live data.** Both datasets are historical October 2026 snapshots. Nothing
    in this project is a live feed, and the UI says so.
 5. **Weekday coverage.** Eleven GPS days are processed: a full week (Mon 5 Oct

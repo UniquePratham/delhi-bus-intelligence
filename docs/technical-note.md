@@ -174,11 +174,13 @@ but a single generic word like "Terminal" cannot link two unrelated places.
 ## 6. Known limitations
 
 1. **Route geometry is reconstructed.** `shapes.txt` is absent from the feed, so
-   map lines are rebuilt from GPS traces: for each station pair, pings are
-   projected onto the chord, binned by progress, and the median lateral offset
-   per bin becomes the polyline. This covers 10,080 of 12,352 pairs (82%); the
-   remainder fall back to a straight chord. Median path/chord ratio is 1.04 and
-   implied speed 21.7 km/h, which is consistent with real bus movement.
+   map lines are rebuilt in two stages. GPS traces give the corridor: pings are
+   projected onto each station-pair chord, binned by progress, and the median
+   lateral offset per bin becomes a guide polyline. That guide is then
+   map-matched onto the basemap's real road centerlines with a Dijkstra search
+   that penalises deviation from the trace and rejects detours beyond 1.6× the
+   guide length. 76% of pairs match to roads; the remainder keep the GPS
+   corridor. Median path/chord ratio is 1.09 and implied speed 22.6 km/h.
 2. **Crowding coverage.** 63% of routes have any crowding estimate, and 87% of
    cells are low confidence. 909 ticket route strings have no GTFS route at all.
 3. **No live data.** Everything is a historical October 2026 snapshot.

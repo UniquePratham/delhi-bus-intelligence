@@ -152,11 +152,13 @@ Read [technical-note.md](docs/technical-note.md) for the full method.
   Missing values are reported as `unknown`, never as "not crowded". In practice
   72% of bus legs in a typical journey do carry an estimate.
 * **Route geometry is reconstructed, not published.** `shapes.txt` is absent
-  from the feed, so map lines are rebuilt from GPS traces: each station pair's
-  path is the median lateral offset of observed pings, binned along the chord.
-  This covers 10,080 of 12,352 pairs (82%); the rest fall back to a straight
-  chord. Median path/chord ratio is 1.04 and implied speed is 21.7 km/h, so the
-  lines follow roads rather than cutting across the city.
+  from the feed, so map lines are rebuilt in two stages: GPS traces give the
+  corridor (median lateral offset per progress bin), then each path is
+  map-matched onto the basemap's real road centerlines with a Dijkstra search
+  that penalises deviation from the trace. 76% of station pairs match to roads;
+  the rest fall back to the GPS corridor. Median path/chord ratio is 1.09 and
+  implied speed 22.6 km/h, so lines follow roads rather than cutting across
+  buildings.
 * **No Google Maps comparison.** Its terms forbid scraping, and a car route is
   not a bus route. Validation uses 400 real observed bus trips instead.
 
@@ -248,6 +250,7 @@ python scripts/ui_smoke.py            # map UI renders in a real browser
 | Journey MAE vs real trips | `python -m dbi.journey.validate --sample 400` |
 | Crowding pattern checks | `python -m dbi.crowding.evaluate` |
 | Map route geometry | `python scripts/build_route_geometry.py` |
+| Road map-matching | `python scripts/match_routes_to_roads.py` |
 | Geometry plausibility | `python scripts/validate_geometry.py` |
 
 Outputs land in `data/artifacts/`.

@@ -137,7 +137,7 @@ API so a client can change the balance.
 
 | Limitation | Consequence |
 |---|---|
-| No `shapes.txt` in the feed | Map lines are reconstructed from GPS traces (82% of pairs); the rest fall back to a straight chord |
+| No `shapes.txt` in the feed | Map lines are reconstructed from GPS traces and map-matched onto basemap road centerlines (76% of pairs); the rest keep the GPS corridor |
 | No live feed | Everything is a historical October 2026 snapshot |
 | Eleven days of GPS | A full week plus three later Thursdays; no seasonal effects |
 | No bus length data | Capacity cannot be adjusted per vehicle class |
