@@ -72,6 +72,7 @@ export default function Page() {
   const [destination, setDestination] = useState<{ lat: number; lon: number } | null>(null);
   const [ms, setMs] = useState<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapMode, setMapMode] = useState<"2d" | "3d">("3d");
 
   useEffect(() => {
     let dead = false;
@@ -437,12 +438,27 @@ export default function Page() {
                   origin={origin}
                   destination={destination}
                   onLoaded={() => setMapReady(true)}
+                  mode={mapMode}
                 />
 
                 {/* Map chrome */}
                 <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-5">
-                  <div className="pointer-events-auto glass px-3 py-2">
-                    <span className="eyebrow">3D · drag to orbit</span>
+                  <div className="pointer-events-auto glass flex items-center gap-1 p-1">
+                    {(["2d", "3d"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMapMode(m)}
+                        aria-pressed={mapMode === m}
+                        className={`mono px-2.5 py-1 text-[10px] uppercase tracking-wider transition-colors ${
+                          mapMode === m
+                            ? "bg-text text-ink"
+                            : "text-text-3 hover:text-text-2"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
                   </div>
                   <div className="pointer-events-auto glass px-3 py-2">
                     <span className="eyebrow">

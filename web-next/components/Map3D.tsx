@@ -46,11 +46,13 @@ export default function Map3D({
   origin,
   destination,
   onLoaded,
+  mode = "3d",
 }: {
   journey: Journey | null;
   origin: { lat: number; lon: number } | null;
   destination: { lat: number; lon: number } | null;
   onLoaded?: () => void;
+  mode?: "2d" | "3d";
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
@@ -144,7 +146,7 @@ export default function Map3D({
                   "interpolate",
                   ["linear"],
                   ["zoom"],
-                  12, ["*", 1.6, ["coalesce", ["get", "height"], 8]],
+                  12, ["*", 0.9, ["coalesce", ["get", "height"], 8]],
                   13, ["coalesce", ["get", "height"], 8],
                 ],
                 "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
@@ -225,8 +227,10 @@ export default function Map3D({
       if (path.length < 2) continue;
 
       segments.push(path);
-      // Mark the stations the ride actually calls at, not every road vertex.
-      for (const sid of seq) {
+      // Mark only the stops that matter: where you board, where you get off,
+      // and the transfer points between legs. Every intermediate stop would
+      // bury the line under dots.
+      for (const sid of [leg.fromStation, leg.toStation]) {
         const c = coord(sid);
         if (!c) continue;
         points.push({
@@ -246,48 +250,61 @@ export default function Map3D({
         geometry: { type: "MultiLineString", coordinates: segments },
       },
     });
-    m.addLayer({
-      id: "rt-glow",
-      type: "line",
-      source: "rt",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": "#7aa8ff",
-        "line-width": 26,
-        "line-opacity": 0.2,
-        "line-blur": 20,
+    // Insert the route *below* the building extrusion. A road is at ground
+    // level, so buildings in front of it must occlude it; drawing the line on
+    // top of the roofs is what made it read as a bus flying over the city.
+    const belowBuildings = m.getLayer("city-3d") ? "city-3d" : undefined;
+    m.addLayer(
+      {
+        id: "rt-glow",
+        type: "line",
+        source: "rt",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#7aa8ff",
+          "line-width": 18,
+          "line-opacity": 0.22,
+          "line-blur": 14,
+        },
       },
-    });
-    m.addLayer({
-      id: "rt-line",
-      type: "line",
-      source: "rt",
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#e2ecff", "line-width": 4, "line-opacity": 1 },
-    });
+      belowBuildings
+    );
+    m.addLayer(
+      {
+        id: "rt-line",
+        type: "line",
+        source: "rt",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#e2ecff", "line-width": 3, "line-opacity": 1 },
+      },
+      belowBuildings
+    );
 
     m.addSource("rtp", {
       type: "geojson",
       data: { type: "FeatureCollection", features: points },
     });
-    m.addLayer({
-      id: "rt-pts",
-      type: "circle",
-      source: "rtp",
-      paint: {
-        "circle-radius": 5,
-        "circle-color": [
-          "match",
-          ["get", "band"],
-          "seats_available", BAND_COLOR.seats_available,
-          "standing_room", BAND_COLOR.standing_room,
-          "crowded", BAND_COLOR.crowded,
-          BAND_COLOR.unknown,
-        ],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#06070a",
+    m.addLayer(
+      {
+        id: "rt-pts",
+        type: "circle",
+        source: "rtp",
+        paint: {
+          "circle-radius": 4.5,
+          "circle-color": [
+            "match",
+            ["get", "band"],
+            "seats_available", BAND_COLOR.seats_available,
+            "standing_room", BAND_COLOR.standing_room,
+            "crowded", BAND_COLOR.crowded,
+            BAND_COLOR.unknown,
+          ],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#06070a",
+        },
       },
-    });
+      belowBuildings
+    );
 
     // Frame the route. `fitBounds` ignores `pitch`/`bearing` and clamps to
     // minZoom, which left the camera stuck at the floor. Compute the camera
@@ -354,6 +371,36 @@ export default function Map3D({
       m.off("idle", attempt);
     };
   }, [drawRoute, ready]);
+
+  // 2D / 3D presentation. 2D flattens the camera and hides the extrusion so
+  // the route reads as a clean schematic; 3D tilts and shows the city.
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    const apply = () => {
+      if (!m.isStyleLoaded()) return;
+      if (m.getLayer("city-3d")) {
+        m.setLayoutProperty(
+          "city-3d",
+          "visibility",
+          mode === "3d" ? "visible" : "none"
+        );
+      }
+      m.easeTo({
+        pitch: mode === "3d" ? 52 : 0,
+        bearing: mode === "3d" ? -22 : 0,
+        duration: 700,
+      });
+    };
+    apply();
+    const timer = window.setInterval(() => {
+      if (m.isStyleLoaded()) {
+        apply();
+        window.clearInterval(timer);
+      }
+    }, 400);
+    return () => window.clearInterval(timer);
+  }, [mode, ready]);
 
   // Origin and destination markers.
   useEffect(() => {
