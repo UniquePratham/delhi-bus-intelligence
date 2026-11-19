@@ -36,6 +36,17 @@ stations = {
     for sid, lat, lon in con.execute("SELECT station_id, lat, lon FROM stations").fetchall()
 }
 
+def drawn_length(pts) -> float:
+    """Length of the drawn line, ignoring explicit gap markers."""
+    total = 0.0
+    for j in range(len(pts) - 1):
+        p, q = pts[j], pts[j + 1]
+        if not (np.isfinite(p).all() and np.isfinite(q).all()):
+            continue
+        total += haversine((p[1], p[0]), (q[1], q[0]))
+    return total
+
+
 ratios = []
 lengths = []
 for i in range(len(froms)):
@@ -43,10 +54,7 @@ for i in range(len(froms)):
     pts = xy[offs[i] : offs[i + 1]]
     if len(pts) < 2:
         continue
-    path = sum(
-        haversine((pts[j][1], pts[j][0]), (pts[j + 1][1], pts[j + 1][0]))
-        for j in range(len(pts) - 1)
-    )
+    path = drawn_length(pts)
     chord = haversine(stations[a], stations[b])
     if chord < 50:
         continue
@@ -54,8 +62,9 @@ for i in range(len(froms)):
     lengths.append((chord, path))
 
 r = np.array(ratios)
+r = r[np.isfinite(r)]
 print(f"pairs measured: {len(r)}")
-print(f"path/chord ratio  mean={r.mean():.3f}  median={np.median(r):.3f}")
+print(f"path/chord ratio  mean={np.mean(r):.3f}  median={np.median(r):.3f}")
 print(f"  p10={np.percentile(r,10):.3f}  p90={np.percentile(r,90):.3f}  max={r.max():.2f}")
 print(f"  share > 1.02 (curved): {(r > 1.02).mean()*100:.1f}%")
 print(f"  share < 0.98 (shortcut): {(r < 0.98).mean()*100:.1f}%")
@@ -82,15 +91,13 @@ for i in range(len(froms)):
     pts = xy[offs[i] : offs[i + 1]]
     if len(pts) < 2:
         continue
-    path = sum(
-        haversine((pts[j][1], pts[j][0]), (pts[j + 1][1], pts[j + 1][0]))
-        for j in range(len(pts) - 1)
-    )
+    path = drawn_length(pts)
     if path < 100:
         continue
     speeds.append(path / med[key] * 3.6)
 
 s = np.array(speeds)
+s = s[np.isfinite(s)]
 print()
 print(f"implied speed km/h  median={np.median(s):.1f}  p10={np.percentile(s,10):.1f}  p90={np.percentile(s,90):.1f}")
 print(f"  share in 5-60 km/h (plausible bus): {((s>=5)&(s<=60)).mean()*100:.1f}%")

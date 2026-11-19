@@ -41,6 +41,12 @@ function pairGeom(from: number, to: number): [number, number][] {
   return PAIR_GEOM ? PAIR_GEOM(from, to) : [];
 }
 
+/** Metres between two [lon, lat] points, near enough at city scale. */
+function metres(a: [number, number], b: [number, number]): number {
+  const kx = 111320 * Math.cos(((a[1] + b[1]) * Math.PI) / 360);
+  return Math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * 110540);
+}
+
 export default function Map3D({
   journey,
   origin,
@@ -57,6 +63,9 @@ export default function Map3D({
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
   const [ready, setReady] = useState(false);
+  // Two different honesty problems, reported separately: a pair with no road
+  // geometry at all, and a short break where two mapped fragments meet.
+  const [routeNotes, setRouteNotes] = useState({ missingPairs: 0, linkGaps: 0, maxGapM: 0 });
 
   // `onLoaded` is typically an inline arrow, so its identity changes on every
   // render. Holding it in a ref keeps the map-init effect from tearing the map
@@ -199,38 +208,65 @@ export default function Map3D({
 
     const segments: [number, number][][] = [];
     const points: GeoJSON.Feature[] = [];
+    const markedStops = new Set<number>();
+    let missingPairs = 0;
+    let linkGaps = 0;
+    let maxGapM = 0;
+    let lastPoint: [number, number] | null = null;
+    let gapStart: [number, number] | null = null;
     for (const leg of journey.legs) {
-      if (leg.fromStation === null || leg.toStation === null) continue;
+      if (leg.kind !== "bus" || leg.fromStation === null || leg.toStation === null) continue;
 
       // Walk the ride's stop sequence and draw each consecutive pair along its
-      // observed road geometry. A pair with no trace falls back to the chord,
-      // so the line is always continuous.
+      // road geometry. Missing pairs split the line and are reported; they are
+      // never replaced by station-to-station chords.
       const stops = routePath(leg.routeId, leg.fromStation, leg.toStation);
-      const seq = stops.length >= 2 ? stops : [leg.fromStation, leg.toStation];
-      const path: [number, number][] = [];
+      const seq = stops.length >= 2 ? stops : [];
+      if (seq.length < 2) missingPairs++;
+      let path: [number, number][] = [];
+      const flushPath = () => {
+        if (path.length >= 2) segments.push(path);
+        path = [];
+      };
       for (let i = 0; i < seq.length - 1; i++) {
         const a = seq[i];
         const b = seq[i + 1];
         const geom = pairGeom(a, b);
-        if (geom.length >= 2) {
-          // Skip the first point on continuation to avoid duplicate vertices.
-          for (let k = path.length ? 1 : 0; k < geom.length; k++) path.push(geom[k]);
-        } else {
-          const ca = coord(a);
-          const cb = coord(b);
-          if (ca && cb) {
-            if (!path.length) path.push(ca);
-            path.push(cb);
+        if (geom.length < 2) {
+          // No road geometry for this pair. Omit it entirely: a two-point chord
+          // would cut across whatever sits between the two stops.
+          flushPath();
+          lastPoint = null;
+          gapStart = null;
+          missingPairs++;
+          continue;
+        }
+        // Skip the first point on continuation to avoid duplicate vertices.
+        for (let k = path.length ? 1 : 0; k < geom.length; k++) {
+          const point = geom[k];
+          if (!Number.isFinite(point[0]) || !Number.isFinite(point[1])) {
+            // A break where two mapped road fragments meet. Split the line;
+            // the jump itself is never drawn as road.
+            gapStart = lastPoint;
+            flushPath();
+            continue;
           }
+          if (gapStart) {
+            linkGaps++;
+            maxGapM = Math.max(maxGapM, metres(gapStart, point));
+            gapStart = null;
+          }
+          path.push(point);
+          lastPoint = point;
         }
       }
-      if (path.length < 2) continue;
-
-      segments.push(path);
+      flushPath();
       // Mark only the stops that matter: where you board, where you get off,
       // and the transfer points between legs. Every intermediate stop would
       // bury the line under dots.
       for (const sid of [leg.fromStation, leg.toStation]) {
+        if (markedStops.has(sid)) continue;
+        markedStops.add(sid);
         const c = coord(sid);
         if (!c) continue;
         points.push({
@@ -240,7 +276,19 @@ export default function Map3D({
         });
       }
     }
-    if (!segments.length) return;
+    if (!segments.length) {
+      setRouteNotes({ missingPairs, linkGaps, maxGapM });
+      if (holder.current) {
+        holder.current.dataset.routeReady = "true";
+        holder.current.dataset.routeDrawn = "false";
+        holder.current.dataset.routeSegments = "0";
+        holder.current.dataset.routeMissingPairs = String(missingPairs);
+        holder.current.dataset.routeLinkGaps = String(linkGaps);
+        holder.current.dataset.routeMaxGapM = String(Math.round(maxGapM));
+      }
+      renderedKey.current = key;
+      return;
+    }
 
     m.addSource("rt", {
       type: "geojson",
@@ -335,7 +383,19 @@ export default function Map3D({
     renderedKey.current = key;
     // A stable, inspectable signal that the route is on the map. The smoke
     // test waits on this instead of guessing at a delay.
-    if (holder.current) holder.current.dataset.routeDrawn = "true";
+    if (holder.current) {
+      const layers = m.getStyle().layers ?? [];
+      const routeIndex = Math.max(...["rt-glow", "rt-line", "rt-pts"].map((id) => layers.findIndex((l) => l.id === id)));
+      const buildingIndex = layers.findIndex((l) => l.id === "city-3d");
+      holder.current.dataset.routeReady = "true";
+      holder.current.dataset.routeDrawn = "true";
+      holder.current.dataset.routeSegments = String(segments.length);
+      holder.current.dataset.routeMissingPairs = String(missingPairs);
+      holder.current.dataset.routeLinkGaps = String(linkGaps);
+      holder.current.dataset.routeMaxGapM = String(Math.round(maxGapM));
+      holder.current.dataset.routeBelowBuildings = String(buildingIndex < 0 || routeIndex < buildingIndex);
+    }
+    setRouteNotes({ missingPairs, linkGaps, maxGapM });
   }, [journey]);
 
   useEffect(() => {
@@ -438,11 +498,35 @@ export default function Map3D({
   }, [origin, destination, ready]);
 
   return (
-    <div
-      ref={holder}
-      className="h-full w-full"
-      role="img"
-      aria-label="3D map of the planned bus journey"
-    />
+    <div className="relative h-full w-full">
+      <div
+        ref={holder}
+        className="h-full w-full"
+        role="img"
+        aria-label="Map of the planned bus journey"
+      />
+      {(routeNotes.missingPairs > 0 || routeNotes.linkGaps > 0) && (
+        <div
+          className={
+            routeNotes.missingPairs > 0
+              ? "pointer-events-none absolute bottom-3 left-3 z-10 max-w-sm rounded-lg border border-amber-300/30 bg-black/80 px-3 py-2 text-xs text-amber-100 shadow-lg"
+              : "pointer-events-none absolute bottom-3 left-3 z-10 max-w-sm rounded-lg border border-line-soft bg-black/70 px-3 py-2 text-xs text-text-3 shadow-lg"
+          }
+        >
+          {routeNotes.missingPairs > 0 && (
+            <p>
+              No road geometry for {routeNotes.missingPairs} stretch
+              {routeNotes.missingPairs === 1 ? "" : "es"}; those sections are omitted from the map.
+            </p>
+          )}
+          {routeNotes.linkGaps > 0 && (
+            <p className={routeNotes.missingPairs > 0 ? "mt-1" : ""}>
+              {routeNotes.linkGaps} short gap{routeNotes.linkGaps === 1 ? "" : "s"} up to{" "}
+              {Math.round(routeNotes.maxGapM)} m where two mapped road fragments meet; not drawn as road.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

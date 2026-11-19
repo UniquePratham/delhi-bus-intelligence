@@ -137,7 +137,7 @@ API so a client can change the balance.
 
 | Limitation | Consequence |
 |---|---|
-| No `shapes.txt` in the feed | Map lines are reconstructed from GPS traces and map-matched onto basemap road centerlines (76% of pairs); the rest keep the GPS corridor |
+| No `shapes.txt` in the feed | Map lines are routed on basemap road centerlines: 99.7% of the 12,352 route pairs have a road path, and the 36 that do not are omitted (never drawn as a chord). Median drawn point sits 0.08 m from a road centerline |
 | No live feed | Everything is a historical October 2026 snapshot |
 | Eleven days of GPS | A full week plus three later Thursdays; no seasonal effects |
 | No bus length data | Capacity cannot be adjusted per vehicle class |

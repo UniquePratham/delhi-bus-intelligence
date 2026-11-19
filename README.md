@@ -152,13 +152,15 @@ Read [technical-note.md](docs/technical-note.md) for the full method.
   Missing values are reported as `unknown`, never as "not crowded". In practice
   72% of bus legs in a typical journey do carry an estimate.
 * **Route geometry is reconstructed, not published.** `shapes.txt` is absent
-  from the feed, so map lines are rebuilt in two stages: GPS traces give the
-  corridor (median lateral offset per progress bin), then each path is
-  map-matched onto the basemap's real road centerlines with a Dijkstra search
-  that penalises deviation from the trace. 76% of station pairs match to roads;
-  the rest fall back to the GPS corridor. Median path/chord ratio is 1.09 and
-  implied speed 22.6 km/h, so lines follow roads rather than cutting across
-  buildings.
+  from the feed, so every station pair a route can traverse is routed on the
+  basemap's real road centerlines (`scripts/route_on_roads.py`). 99.7% of the
+  12,352 route pairs have a road path. The 36 that do not are omitted from the
+  map and named on screen; not one is drawn as a straight chord. An independent
+  audit of 1.75 M points along the drawn lines measures a median distance of
+  0.08 m to the nearest road centerline, p99 5.2 m, and none beyond 25 m. Where
+  the road genuinely goes around a barrier the line follows it: pairs across the
+  Central Vista, the Ridge and the Yamuna are 3–12× their straight-line gap,
+  which is what a bus actually drives.
 * **No Google Maps comparison.** Its terms forbid scraping, and a car route is
   not a bus route. Validation uses 400 real observed bus trips instead.
 
@@ -249,8 +251,13 @@ python scripts/ui_smoke.py            # map UI renders in a real browser
 | Segment MAE, baselines | `python -m dbi.traffic.evaluate` |
 | Journey MAE vs real trips | `python -m dbi.journey.validate --sample 400` |
 | Crowding pattern checks | `python -m dbi.crowding.evaluate` |
-| Map route geometry | `python scripts/build_route_geometry.py` |
-| Road map-matching | `python scripts/match_routes_to_roads.py` |
+| Map route geometry (road-only, no chords) | `python scripts/route_on_roads.py` |
+| On-road audit of every drawn point | `python scripts/audit_on_road.py` |
 | Geometry plausibility | `python scripts/validate_geometry.py` |
+
+`scripts/build_route_geometry.py` and `scripts/ensure_route_geometry.py` are the
+older two-stage pipeline (GPS corridor, then road matching). They are superseded:
+running either one overwrites `web-next/public/data/geom_*.bin` with geometry
+that has no on-road guarantee.
 
 Outputs land in `data/artifacts/`.

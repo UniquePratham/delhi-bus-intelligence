@@ -256,10 +256,8 @@ export class Planner {
   /**
    * Road-following polyline between two adjacent stations, as [lon, lat].
    *
-   * Reconstructed from real GPS traces (scripts/build_route_geometry.py), so
-   * the line follows the road instead of cutting across the city. Returns an
-   * empty array when the pair has no observed trace; callers fall back to the
-   * straight chord.
+   * Reconstructed from road centerlines. Returns an empty array when the pair
+   * has no geometry; callers must omit that segment rather than draw a chord.
    *
    * Takes station *indices* (the planner's internal 0..n-1 space), not station
    * IDs, and translates before lookup.

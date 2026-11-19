@@ -174,16 +174,26 @@ but a single generic word like "Terminal" cannot link two unrelated places.
 ## 6. Known limitations
 
 1. **Route geometry is reconstructed.** `shapes.txt` is absent from the feed, so
-   map lines are rebuilt in two stages. GPS traces give the corridor: pings are
-   projected onto each station-pair chord, binned by progress, and the median
-   lateral offset per bin becomes a guide polyline. That guide is then
-   map-matched onto the basemap's real road centerlines with a Dijkstra search
-   that penalises deviation from the trace and rejects detours beyond 1.6× the
-   guide length. 76% of pairs match to roads; the remainder keep the GPS
-   corridor. Median path/chord ratio is 1.09 and implied speed 22.6 km/h.
+   map lines are rebuilt on the basemap's road network. The road graph comes from
+   CARTO's vector tiles (725,259 unique centerline edges over 665,790 nodes),
+   stitched where tile clipping leaves neighbouring vertices a few metres apart
+   and bridged where the network arrives in disconnected fragments. Every
+   consecutive station pair on every route is then routed on that graph with an
+   A* search: 12,316 of 12,352 pairs (99.7%) get a path. A drawn point is always
+   a graph node, a tile-stitch hop of at most 30 m is drawn as the same pavement,
+   and a longer component bridge is never drawn, the line is split instead.
+   Nothing falls back to a station-to-station chord: the 36 pairs with no path
+   are omitted from the map and named in the UI. An independent audit (20 m
+   road-centerline pieces, 1.75 M sampled points along the drawn lines) gives a
+   median distance of 0.08 m, p99 5.2 m and no point beyond 25 m. Median
+   road/chord ratio is 1.20; the tail (up to 12×) is real, not error — those
+   pairs cross the Central Vista, the Ridge forest or the Yamuna.
 2. **Crowding coverage.** 63% of routes have any crowding estimate, and 87% of
    cells are low confidence. 909 ticket route strings have no GTFS route at all.
 3. **No live data.** Everything is a historical October 2026 snapshot.
+   Snapping also has a floor: 25 route pairs touch a station more than 200 m from
+   any road node and are omitted, and 931 routed pairs contain a short gap
+   (median 47 m) where two mapped road fragments meet.
 4. **Walking is straight-line.** Access and egress legs use great-circle
    distance at 1.25 m/s, not a pedestrian network.
 5. **Eleven days of GPS.** A full week plus three later Thursdays. Seasonal
