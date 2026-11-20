@@ -241,8 +241,24 @@ export default function Map3D({
           missingPairs++;
           continue;
         }
-        // Skip the first point on continuation to avoid duplicate vertices.
-        for (let k = path.length ? 1 : 0; k < geom.length; k++) {
+        // Join this pair to the previous one. The first point is only
+        // redundant when it actually coincides with where the path ends;
+        // skipping it unconditionally drew a straight jump between the two
+        // points, which is the chord that cut across blocks.
+        let startK = 0;
+        if (path.length) {
+          const prev = path[path.length - 1];
+          const first = geom[0];
+          if (metres(prev, first) <= 1.0) {
+            startK = 1;
+          } else {
+            // The fragments do not meet. Break the line rather than bridge it.
+            flushPath();
+            lastPoint = null;
+            gapStart = null;
+          }
+        }
+        for (let k = startK; k < geom.length; k++) {
           const point = geom[k];
           if (!Number.isFinite(point[0]) || !Number.isFinite(point[1])) {
             // A break where two mapped road fragments meet. Split the line;

@@ -45,7 +45,7 @@ TILE_URL = (
     "carto.streets/v2/{z}/{x}/{y}.mvt"
 )
 # CARTO serves road detail through z15; z16 tiles are empty.
-Z = 14
+Z = 15
 EXTENT = 4096
 # CARTO's `other` kind also contains bus-stop POI linework, while `path`
 # contains footways. Neither belongs in a bus-route road graph.
