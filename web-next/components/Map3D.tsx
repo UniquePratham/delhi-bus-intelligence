@@ -135,6 +135,30 @@ export default function Map3D({
         }
       }
 
+      // Light mode: the dark style's landuse and building fills are near-black
+      // and read as holes on a light ground. These layers use zoom-stop
+      // expressions, so the expression has to be replaced wholesale.
+      if (isLight) {
+        for (const layer of m.getStyle().layers ?? []) {
+          if (layer.type !== "fill") continue;
+          if (/landuse|landcover|park/i.test(layer.id)) {
+            try {
+              m.setPaintProperty(layer.id, "fill-color", "#e4ddcd");
+              m.setPaintProperty(layer.id, "fill-opacity", 0.5);
+            } catch {
+              /* data-driven */
+            }
+          } else if (/^building/i.test(layer.id)) {
+            try {
+              m.setPaintProperty(layer.id, "fill-color", "#d8cfbc");
+              m.setPaintProperty(layer.id, "fill-opacity", 0.85);
+            } catch {
+              /* data-driven */
+            }
+          }
+        }
+      }
+
       // Extrude buildings. CARTO's vector tiles carry `building` with
       // `render_height`, which is what makes the city read as 3D.
       const sources = m.getStyle().sources;
@@ -183,6 +207,19 @@ export default function Map3D({
         } catch (err) {
           console.warn("3D buildings unavailable:", err);
         }
+      }
+
+      // The extrusion is created above with the dark palette. In light mode it
+      // has to be recoloured immediately, or the city renders as dark navy
+      // blocks on paper until the user toggles the theme.
+      if (isLight && m.getLayer("city-3d")) {
+        m.setPaintProperty(
+          "city-3d",
+          "fill-extrusion-color",
+          ["interpolate", ["linear"], ["coalesce", ["get", "height"], 8],
+           0, "#e6e0d3", 30, "#dcd4c4", 90, "#cfc5b2", 200, "#c0b59e"]
+        );
+        m.setPaintProperty("city-3d", "fill-extrusion-opacity", 0.85);
       }
 
       setReady(true);
@@ -339,6 +376,9 @@ export default function Map3D({
     // level, so buildings in front of it must occlude it; drawing the line on
     // top of the roofs is what made it read as a bus flying over the city.
     const belowBuildings = m.getLayer("city-3d") ? "city-3d" : undefined;
+    // Pick the route colour for the active theme at draw time, so a route drawn
+    // while the page is light is not painted with the dark palette.
+    const light = document.documentElement.dataset.theme === "light";
     m.addLayer(
       {
         id: "rt-glow",
@@ -346,9 +386,9 @@ export default function Map3D({
         source: "rt",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#7aa8ff",
+          "line-color": light ? "#4a7fae" : "#7aa8ff",
           "line-width": 18,
-          "line-opacity": 0.22,
+          "line-opacity": light ? 0.3 : 0.22,
           "line-blur": 14,
         },
       },
@@ -360,7 +400,11 @@ export default function Map3D({
         type: "line",
         source: "rt",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#e2ecff", "line-width": 3, "line-opacity": 1 },
+        paint: {
+          "line-color": light ? "#1d4e79" : "#e2ecff",
+          "line-width": light ? 3.5 : 3,
+          "line-opacity": 1,
+        },
       },
       belowBuildings
     );
@@ -530,11 +574,20 @@ export default function Map3D({
         }
         // Landuse fills (parks, industrial, residential) are near-black in the
         // dark style. On a light ground they read as holes, so tint them to
-        // the paper instead.
+        // the paper instead. These layers use zoom-stop expressions, so a flat
+        // colour is rejected - the expression has to be replaced wholesale.
         if (isLight && layer.type === "fill" && /landuse|landcover|park/i.test(layer.id)) {
           try {
             m.setPaintProperty(layer.id, "fill-color", "#e4ddcd");
-            m.setPaintProperty(layer.id, "fill-opacity", 0.55);
+            m.setPaintProperty(layer.id, "fill-opacity", 0.5);
+          } catch {
+            /* data-driven */
+          }
+        }
+        if (isLight && /^building/i.test(layer.id)) {
+          try {
+            m.setPaintProperty(layer.id, "fill-color", "#ddd5c4");
+            m.setPaintProperty(layer.id, "fill-opacity", 0.9);
           } catch {
             /* data-driven */
           }
@@ -556,10 +609,12 @@ export default function Map3D({
         }
       }
       if (m.getLayer("rt-line")) {
-        m.setPaintProperty("rt-line", "line-color", isLight ? "#1f4f7a" : "#e2ecff");
+        m.setPaintProperty("rt-line", "line-color", isLight ? "#1d4e79" : "#e2ecff");
+        m.setPaintProperty("rt-line", "line-width", isLight ? 3.5 : 3);
       }
       if (m.getLayer("rt-glow")) {
-        m.setPaintProperty("rt-glow", "line-color", isLight ? "#3f6f9e" : "#7aa8ff");
+        m.setPaintProperty("rt-glow", "line-color", isLight ? "#4a7fae" : "#7aa8ff");
+        m.setPaintProperty("rt-glow", "line-opacity", isLight ? 0.3 : 0.22);
       }
       if (m.getLayer("city-3d")) {
         m.setPaintProperty(
