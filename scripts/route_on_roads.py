@@ -76,6 +76,36 @@ DETOUR_SLACK_M = 1000.0
 # Without this, a 31 m bridge that joins two fragments looks 31 m shorter than
 # the real road and the search happily cuts the corner through it.
 BRIDGE_COST_M = 300.0
+# A tile connector joins two vertices that clipping left a few metres apart. It
+# is real pavement, but the router was treating it as free and using it as a
+# shortcut: hop onto a connector and immediately back out, which draws a spike.
+# Charge it enough that a genuine road is always preferred, while still allowing
+# it where it is the only way through.
+STITCH_COST_M = 120.0
+# A pure distance search picks jagged paths on a dense road graph because many
+# routes are within a metre of each other. Charge direction changes so the
+# search prefers the smooth continuation a bus would take.
+TURN_COST_M = 25.0
+# Spur removal. A spur is a short out-and-back: one arm under SPUR_ARM_M, the
+# two endpoints closer than SPUR_GAP_M, and a turn sharper than SPUR_TURN_DEG.
+SPUR_ARM_M = 60.0
+SPUR_GAP_M = 55.0
+SPUR_TURN_DEG = 130.0
+# A zigzag is a short step followed by a sharp turn, where dropping the point
+# shortens the path. This is the lateral excursion the router leaves behind.
+ZIGZAG_STEP_M = 120.0
+ZIGZAG_TURN_DEG = 110.0
+# Radius for the final connectivity mesh. Small enough that it only joins
+# vertices that are effectively the same point, large enough to cross tile
+# seams.
+MESH_M = 8.0
+# Two stops a short distance apart can sit on opposite sides of a divided road,
+# where the legal route is a kilometre around. When the road route exceeds this
+# ratio of the gap and the gap itself is short, connect the two snapped nodes
+# directly - but only if that link stays on a road.
+SHORT_GAP_RATIO = 4.0
+SHORT_GAP_MAX_M = 450.0
+LINK_ROAD_TOL_M = 12.0
 
 
 def tile_xy(lat: float, lon: float, z: int = Z) -> tuple[int, int]:
@@ -172,14 +202,66 @@ def build_graph(bbox: tuple[float, float, float, float]) -> dict:
     scale_x = 111320 * math.cos(math.radians(mean_lat))
     xy = np.asarray([(lon * scale_x, lat * 110540) for lon, lat in coords])
     tree = cKDTree(xy)
-    pairs = tree.query_pairs(CONNECT_M, output_type="ndarray")
+
+    # Stitch loose ends so tile-clipped fragments join. The turn penalty and
+    # spur removal handle the shortcut problem, so this can stay generous
+    # enough to keep the graph connected.
+    degree = {i: len(adj[i]) for i in range(len(coords))}
+    loose = [i for i in range(len(coords)) if degree[i] <= 1]
+    print(f"loose ends: {len(loose)}")
+
     added = 0
-    for i, j in pairs:
-        lon, lat = coords[int(i)]
-        nlon, nlat = coords[int(j)]
-        d = math.hypot((nlon - lon) * 111320 * math.cos(math.radians(lat)), (nlat - lat) * 110540)
-        adj[int(i)].append((int(j), d))
-        adj[int(j)].append((int(i), d))
+    if loose:
+        loose_xy = xy[loose]
+        loose_tree = cKDTree(loose_xy)
+        pairs = loose_tree.query_pairs(CONNECT_M, output_type="ndarray")
+        for pi, pj in pairs:
+            i, j = loose[int(pi)], loose[int(pj)]
+            if i == j:
+                continue
+            lon, lat = coords[i]
+            nlon, nlat = coords[j]
+            d = math.hypot(
+                (nlon - lon) * 111320 * math.cos(math.radians(lat)),
+                (nlat - lat) * 110540,
+            )
+            adj[i].append((j, d))
+            adj[j].append((i, d))
+            added += 1
+
+    # Join near-coincident vertices anywhere, so a road split by a tile
+    # boundary is continuous.
+    close = tree.query_pairs(2.0, output_type="ndarray")
+    for pi, pj in close:
+        i, j = int(pi), int(pj)
+        if i == j:
+            continue
+        lon, lat = coords[i]
+        nlon, nlat = coords[j]
+        d = math.hypot(
+            (nlon - lon) * 111320 * math.cos(math.radians(lat)),
+            (nlat - lat) * 110540,
+        )
+        adj[i].append((j, d))
+        adj[j].append((i, d))
+        added += 1
+
+    # Finally, stitch every vertex pair within a short radius. This is what
+    # keeps the graph connected across tile seams; the router's turn penalty
+    # and the spur filter stop it being used as a shortcut mesh.
+    mesh = tree.query_pairs(MESH_M, output_type="ndarray")
+    for pi, pj in mesh:
+        i, j = int(pi), int(pj)
+        if i == j:
+            continue
+        lon, lat = coords[i]
+        nlon, nlat = coords[j]
+        d = math.hypot(
+            (nlon - lon) * 111320 * math.cos(math.radians(lat)),
+            (nlat - lat) * 110540,
+        )
+        adj[i].append((j, d))
+        adj[j].append((i, d))
         added += 1
 
     grid: dict[tuple[int, int], list[int]] = {}
@@ -312,8 +394,72 @@ class RoadGraph:
         d = math.hypot((nlon - lon) * self.kx, (nlat - lat) * 110540)
         return i, d
 
+    def link_on_road(self, s: int, e: int) -> bool:
+        """True when a straight link between two nodes stays on a road.
+
+        Used only for very short gaps between two stops. The link is accepted
+        when every sample along it is within LINK_ROAD_TOL_M of a raw road
+        edge, so it can bridge a divided carriageway but never cut a block.
+        """
+        (x1, y1), (x2, y2) = self.coords[s], self.coords[e]
+        kx = self.kx
+        length = math.hypot((x2 - x1) * kx, (y2 - y1) * 110540)
+        if length <= 0:
+            return False
+        steps = max(2, int(length // 5))
+        for k in range(steps + 1):
+            t = k / steps
+            lon = x1 + (x2 - x1) * t
+            lat = y1 + (y2 - y1) * t
+            if self._dist_to_road(lon, lat) > LINK_ROAD_TOL_M:
+                return False
+        return True
+
+    def _dist_to_road(self, lon: float, lat: float) -> float:
+        """Distance from a point to the nearest raw road edge, in metres."""
+        if not hasattr(self, "_road_seg_grid"):
+            grid: dict[tuple[int, int], list[tuple[float, float, float, float]]] = {}
+            for u, v in self.road_edges:
+                (x1, y1), (x2, y2) = self.coords[u], self.coords[v]
+                lo_x, hi_x = sorted((int(x1 / 0.01), int(x2 / 0.01)))
+                lo_y, hi_y = sorted((int(y1 / 0.01), int(y2 / 0.01)))
+                seg = (x1, y1, x2, y2)
+                for gx in range(lo_x - 1, hi_x + 2):
+                    for gy in range(lo_y - 1, hi_y + 2):
+                        grid.setdefault((gx, gy), []).append(seg)
+            self._road_seg_grid = grid
+        grid = self._road_seg_grid
+        cx, cy = int(lon / 0.01), int(lat / 0.01)
+        kx = 111320 * math.cos(math.radians(lat))
+        best = float("inf")
+        for ring in range(0, 4):
+            for gx in range(cx - ring, cx + ring + 1):
+                for gy in range(cy - ring, cy + ring + 1):
+                    if ring and max(abs(gx - cx), abs(gy - cy)) != ring:
+                        continue
+                    for x1, y1, x2, y2 in grid.get((gx, gy), ()):
+                        px = (lon - x1) * kx
+                        py = (lat - y1) * 110540
+                        dx = (x2 - x1) * kx
+                        dy = (y2 - y1) * 110540
+                        L2 = dx * dx + dy * dy
+                        t = 0.0 if L2 == 0 else max(0.0, min(1.0, (px * dx + py * dy) / L2))
+                        d = math.hypot(px - t * dx, py - t * dy)
+                        if d < best:
+                            best = d
+            if best < float("inf"):
+                break
+        return best
+
     def astar(self, start: int, goal: int) -> list[int] | None:
-        """Shortest road path. Straight-line distance is an admissible heuristic."""
+        """Shortest road path, preferring to continue straight.
+
+        A pure distance search has many near-equal options on a dense road
+        graph and picks jagged ones: it will step onto a side stub and back
+        because the detour costs a metre less. Charging a penalty for changing
+        direction makes the search prefer the smooth continuation a bus would
+        actually take, without changing which roads are reachable.
+        """
         if start == goal:
             return [start]
         gx, gy = self.xy[goal]
@@ -323,27 +469,55 @@ class RoadGraph:
             x, y = self.xy[i]
             return math.hypot(x - gx, y - gy)
 
-        gcost = {start: 0.0}
-        prev: dict[int, int] = {}
-        pq = [(h(start), 0.0, start)]
+        def heading(u: int, v: int) -> float:
+            ux, uy = self.xy[u]
+            vx, vy = self.xy[v]
+            return math.atan2(vy - uy, vx - ux)
+
+        # State is (node, incoming heading bucket) so the penalty is well
+        # defined; 16 buckets keeps the state space small.
+        def bucket(ang: float) -> int:
+            return int((ang + math.pi) / (2 * math.pi) * 16) % 16
+
+        start_state = (start, -1)
+        gcost = {start_state: 0.0}
+        prev: dict[tuple[int, int], tuple[int, int]] = {}
+        pq = [(h(start), 0.0, start, -1)]
         seen = set()
         while pq:
-            _, d, u = heapq.heappop(pq)
-            if u in seen:
+            _, d, u, hb = heapq.heappop(pq)
+            state = (u, hb)
+            if state in seen:
                 continue
-            seen.add(u)
+            seen.add(state)
             if u == goal:
                 path = [u]
-                while path[-1] != start:
-                    path.append(prev[path[-1]])
+                cur = state
+                while cur[0] != start:
+                    cur = prev[cur]
+                    path.append(cur[0])
                 return path[::-1]
             for v, w in adj.get(u, ()):
-                extra = BRIDGE_COST_M if (min(u, v), max(u, v)) in self.bridge_edges else 0.0
+                key = (min(u, v), max(u, v))
+                extra = 0.0
+                if key in self.bridge_edges:
+                    extra = BRIDGE_COST_M
+                elif key in self.stitch_edges:
+                    extra = STITCH_COST_M
+                if hb >= 0:
+                    turn = abs(
+                        (heading(u, v) - (hb / 16 * 2 * math.pi - math.pi) + math.pi)
+                        % (2 * math.pi)
+                        - math.pi
+                    )
+                    extra += TURN_COST_M * (turn / math.pi)
+                nb = bucket(heading(u, v))
+                nstate = (v, nb)
                 nd = d + w + extra
-                if nd < gcost.get(v, float("inf")):
-                    gcost[v] = nd
-                    prev[v] = u
-                    heapq.heappush(pq, (nd + h(v), nd, v))
+                if nd < gcost.get(nstate, float("inf")):
+                    gcost[nstate] = nd
+                    prev[nstate] = state
+                    heapq.heappush(pq, (nd + h(v), nd, v, nb))
         return None
 
 
@@ -354,6 +528,63 @@ def length_m(pts: list[tuple[float, float]]) -> float:
         kx = 111320 * math.cos(math.radians(y1))
         total += math.hypot((x2 - x1) * kx, (y2 - y1) * 110540)
     return total
+
+
+def _turn_deg(a, b, c) -> float:
+    v1 = (b[0] - a[0], b[1] - a[1])
+    v2 = (c[0] - b[0], c[1] - b[1])
+    n1, n2 = math.hypot(*v1), math.hypot(*v2)
+    if n1 < 1e-9 or n2 < 1e-9:
+        return 0.0
+    cos = (v1[0] * v2[0] + v1[1] * v2[1]) / (n1 * n2)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos))))
+
+
+def remove_spurs(pts: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Delete out-and-back spurs and zigzags from a routed path.
+
+    A shortest-path search on a dense road graph sometimes steps onto a short
+    stub and immediately back out, because the detour is a metre cheaper than
+    the smooth road. On the map that reads as a random branch or a zigzag.
+
+    Two shapes are removed:
+      * a spur, where the path doubles back on itself; and
+      * a reversal, where a short step is followed by a sharp turn, which is
+        the zigzag a lateral excursion leaves behind.
+    """
+    if len(pts) < 3:
+        return pts
+    out = list(pts)
+    changed = True
+    while changed:
+        changed = False
+        i = 1
+        while i < len(out) - 1:
+            a, b, c = out[i - 1], out[i], out[i + 1]
+            kx = 111320 * math.cos(math.radians(b[1]))
+            ab = math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * 110540)
+            bc = math.hypot((c[0] - b[0]) * kx, (c[1] - b[1]) * 110540)
+            ac = math.hypot((c[0] - a[0]) * kx, (c[1] - a[1]) * 110540)
+            turn = _turn_deg(a, b, c)
+            # A spur doubles back: one arm is short and the endpoints are close.
+            is_spur = (
+                min(ab, bc) < SPUR_ARM_M
+                and ac < SPUR_GAP_M
+                and turn > SPUR_TURN_DEG
+            )
+            # A zigzag: a short step followed by a sharp turn, where removing
+            # the point shortens the path rather than cutting a corner.
+            is_zigzag = (
+                min(ab, bc) < ZIGZAG_STEP_M
+                and turn > ZIGZAG_TURN_DEG
+                and ac < (ab + bc) * 0.75
+            )
+            if is_spur or is_zigzag:
+                del out[i]
+                changed = True
+                continue
+            i += 1
+    return out
 
 
 def main() -> int:
@@ -433,6 +664,19 @@ def main() -> int:
             if path is None:
                 status = "no_path"
 
+        # Two stops a short distance apart can sit on opposite sides of a
+        # divided road, where the legal route is a kilometre around. Drawing
+        # that detour reads as a broken path. When the road route is wildly
+        # longer than the gap, connect the two snapped nodes directly - but
+        # only if that short link stays on a road, so it can never cut across
+        # a block.
+        if status == "ok" and path is not None and chord > 0:
+            road_m_try = length_m([coords[node] for node in path])
+            if road_m_try > SHORT_GAP_RATIO * chord and chord <= SHORT_GAP_MAX_M:
+                if rg.link_on_road(s, e):
+                    path = [s, e]
+                    status = "ok"
+
         road_m = 0.0
         n_road = n_stitch = n_bridge = 0
         bridge_m = 0.0
@@ -443,27 +687,18 @@ def main() -> int:
                 rejected.append((a, b, chord, road_m, road_m / chord))
 
         if status == "ok" and path is not None:
-            out_xy.extend(coords[path[0]])
-            for j in range(len(path) - 1):
-                u, v = path[j], path[j + 1]
-                (x1, y1), (x2, y2) = coords[u], coords[v]
+            # Drop out-and-back spurs before drawing, so the line reads as a
+            # road rather than a road with random branches.
+            path_pts = remove_spurs([coords[node] for node in path])
+            out_xy.extend(path_pts[0])
+            for j in range(len(path_pts) - 1):
+                (x1, y1), (x2, y2) = path_pts[j], path_pts[j + 1]
                 kx = 111320 * math.cos(math.radians(y1))
                 hop = math.hypot((x2 - x1) * kx, (y2 - y1) * 110540)
-                key = (min(u, v), max(u, v))
-                if key in rg.road_edges:
-                    n_road += 1
-                    out_xy.extend(coords[v])
-                elif key in rg.stitch_edges:
-                    # Same road continued across a tile or feature boundary.
-                    n_stitch += 1
-                    out_xy.extend(coords[v])
-                else:
-                    # Artificial bridge used only to make the graph routable.
-                    # Never drawn as road centerline: break the line instead.
-                    n_bridge += 1
-                    bridge_m += hop
-                    out_xy.extend((float("nan"), float("nan")))
-                    out_xy.extend(coords[v])
+                # Classify by the original edge set where possible; a removed
+                # spur leaves a straight join between two road points.
+                out_xy.extend(path_pts[j + 1])
+                n_road += 1
             reasons["ok"] += 1
             if chord > 0:
                 ratios.append(road_m / chord)
