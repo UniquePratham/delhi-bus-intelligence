@@ -99,26 +99,36 @@ export default function Map3D({
     );
 
     m.on("load", () => {
-      // Recolour the basemap so the city reads as a dark model rather than a
-      // flat map: lift the ground, cool the water, warm the road network.
+      // Recolour the basemap to match the page. The palette is read from the
+      // CSS variables so the map and the surrounding page are the same
+      // material in both themes, rather than a dark map on a light page.
+      const css = getComputedStyle(document.documentElement);
+      const v = (name: string, fallback: string) =>
+        css.getPropertyValue(name).trim() || fallback;
+      const isLight = document.documentElement.dataset.theme === "light";
+      const ground = v("--map-bg", isLight ? "#eae5da" : "#14161a");
+      const water = isLight ? "#c9d6d8" : "#1b2a33";
+      const road = isLight ? "#c3b9a6" : "#3a4048";
+      const label = isLight ? "#6b655a" : "#8a857c";
+
       for (const layer of m.getStyle().layers ?? []) {
         if (layer.type === "background") {
-          m.setPaintProperty(layer.id, "background-color", "#0b0e14");
+          m.setPaintProperty(layer.id, "background-color", ground);
         }
         if (layer.type === "fill" && /water/i.test(layer.id)) {
-          m.setPaintProperty(layer.id, "fill-color", "#0d1a28");
+          m.setPaintProperty(layer.id, "fill-color", water);
         }
         if (layer.type === "line" && /road|street|highway|bridge|tunnel/i.test(layer.id)) {
           try {
-            m.setPaintProperty(layer.id, "line-color", "#39445a");
+            m.setPaintProperty(layer.id, "line-color", road);
           } catch {
             /* data-driven colour; leave it */
           }
         }
         if (layer.type === "symbol") {
           try {
-            m.setPaintProperty(layer.id, "text-color", "#7b8699");
-            m.setPaintProperty(layer.id, "text-halo-color", "#0b0e14");
+            m.setPaintProperty(layer.id, "text-color", label);
+            m.setPaintProperty(layer.id, "text-halo-color", ground);
           } catch {
             /* not a text layer */
           }
@@ -488,6 +498,87 @@ export default function Map3D({
     }, 400);
     return () => window.clearInterval(timer);
   }, [mode, ready]);
+
+  // Re-theme the basemap when the user switches light/dark, without rebuilding
+  // the map (which would reset the camera and drop the route).
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const apply = () => {
+      if (!m.isStyleLoaded()) return;
+      const isLight = document.documentElement.dataset.theme === "light";
+      const ground = isLight ? "#eae5da" : "#14161a";
+      const water = isLight ? "#c9d6d8" : "#1b2a33";
+      const road = isLight ? "#c3b9a6" : "#3a4048";
+      const label = isLight ? "#6b655a" : "#8a857c";
+      for (const layer of m.getStyle().layers ?? []) {
+        if (layer.type === "background") {
+          m.setPaintProperty(layer.id, "background-color", ground);
+        }
+        if (layer.type === "fill" && /water/i.test(layer.id)) {
+          m.setPaintProperty(layer.id, "fill-color", water);
+        }
+        // The basemap's own flat building fills read as harsh black blocks on
+        // a light ground. The extruded layer replaces them, so hide the flat
+        // ones in light mode.
+        if (
+          isLight &&
+          layer.type === "fill" &&
+          /^building/i.test(layer.id)
+        ) {
+          m.setLayoutProperty(layer.id, "visibility", "none");
+        }
+        // Landuse fills (parks, industrial, residential) are near-black in the
+        // dark style. On a light ground they read as holes, so tint them to
+        // the paper instead.
+        if (isLight && layer.type === "fill" && /landuse|landcover|park/i.test(layer.id)) {
+          try {
+            m.setPaintProperty(layer.id, "fill-color", "#e4ddcd");
+            m.setPaintProperty(layer.id, "fill-opacity", 0.55);
+          } catch {
+            /* data-driven */
+          }
+        }
+        if (layer.type === "line" && /road|street|highway|bridge|tunnel/i.test(layer.id)) {
+          try {
+            m.setPaintProperty(layer.id, "line-color", road);
+          } catch {
+            /* data-driven */
+          }
+        }
+        if (layer.type === "symbol") {
+          try {
+            m.setPaintProperty(layer.id, "text-color", label);
+            m.setPaintProperty(layer.id, "text-halo-color", ground);
+          } catch {
+            /* not a text layer */
+          }
+        }
+      }
+      if (m.getLayer("rt-line")) {
+        m.setPaintProperty("rt-line", "line-color", isLight ? "#1f4f7a" : "#e2ecff");
+      }
+      if (m.getLayer("rt-glow")) {
+        m.setPaintProperty("rt-glow", "line-color", isLight ? "#3f6f9e" : "#7aa8ff");
+      }
+      if (m.getLayer("city-3d")) {
+        m.setPaintProperty(
+          "city-3d",
+          "fill-extrusion-color",
+          isLight
+            ? ["interpolate", ["linear"], ["coalesce", ["get", "height"], 8],
+               0, "#e6e0d3", 30, "#dcd4c4", 90, "#cfc5b2", 200, "#c0b59e"]
+            : ["interpolate", ["linear"], ["coalesce", ["get", "height"], 8],
+               0, "#1b2231", 30, "#252e42", 90, "#313d57", 200, "#3d4b6b"]
+        );
+        m.setPaintProperty("city-3d", "fill-extrusion-opacity", isLight ? 0.85 : 0.95);
+      }
+    };
+    apply();
+    const onChange = () => apply();
+    window.addEventListener("themechange", onChange);
+    return () => window.removeEventListener("themechange", onChange);
+  }, [ready]);
 
   // Origin and destination markers.
   useEffect(() => {

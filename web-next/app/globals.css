@@ -4,21 +4,45 @@
 
 @layer base {
   :root {
+    /* Dark: a warm charcoal, not pure black. Slightly blue-green in the
+       shadows so the map and the page feel like the same material. */
     color-scheme: dark;
-    --ink: #06070a;
-    --ink-1: #0a0c11;
-    --ink-2: #10131a;
-    --ink-3: #171b24;
-    --line: #232833;
-    --line-soft: #1a1e27;
-    --text: #eef1f6;
-    --text-2: #a4adbd;
-    --text-3: #6d7688;
-    --seats: #4ade9b;
-    --standing: #f5c451;
-    --crowded: #ff6b81;
-    --unknown: #5c6577;
-    --accent: #7aa8ff;
+    --ink: #14161a;
+    --ink-1: #191c21;
+    --ink-2: #1f232a;
+    --ink-3: #272c34;
+    --line: #333944;
+    --line-soft: #262b33;
+    --text: #eae7e1;
+    --text-2: #a8a49c;
+    --text-3: #78756e;
+    --seats: #6fbf8f;
+    --standing: #d9a94e;
+    --crowded: #d9705f;
+    --unknown: #6b6f78;
+    --accent: #7fa8d4;
+    --map-bg: #14161a;
+  }
+
+  /* Light: warm paper rather than white. The greys carry a little yellow so
+     the page reads as printed stock, and the accents are muted to match. */
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ink: #f6f3ec;
+    --ink-1: #f1ede4;
+    --ink-2: #eae5da;
+    --ink-3: #e2dccf;
+    --line: #cfc7b6;
+    --line-soft: #e0d9cb;
+    --text: #23211d;
+    --text-2: #5c574e;
+    --text-3: #8a8478;
+    --seats: #3f8f63;
+    --standing: #a97a1f;
+    --crowded: #b04a38;
+    --unknown: #8a8478;
+    --accent: #3f6f9e;
+    --map-bg: #eae5da;
   }
 
   html {
@@ -36,8 +60,8 @@
   }
 
   ::selection {
-    background: rgba(122, 168, 255, 0.28);
-    color: #fff;
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+    color: var(--text);
   }
 
   :focus-visible {
@@ -149,7 +173,7 @@
     border-radius: 2px;
   }
   .btn-solid:hover {
-    background: #fff;
+    background: color-mix(in srgb, var(--text) 88%, var(--ink));
   }
   .btn-solid:disabled {
     opacity: 0.45;

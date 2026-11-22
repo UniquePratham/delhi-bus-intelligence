@@ -7,6 +7,7 @@ import { Planner, type Journey, type Band } from "@/lib/planner";
 import { setStationCoords, setRoutePath, setPairGeometry } from "@/components/Map3D";
 import HourCurve from "@/components/HourCurve";
 import CrowdStrip from "@/components/CrowdStrip";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const Map3D = dynamic(() => import("@/components/Map3D"), { ssr: false });
 
@@ -177,9 +178,12 @@ export default function Page() {
               </span>
               <span className="eyebrow">Transport Stack Hackathon 2026</span>
             </div>
-            <div className="hidden items-center gap-6 sm:flex">
-              <span className="eyebrow">Delhi · October 2026</span>
-              <span className="eyebrow">Not a live feed</span>
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-6 sm:flex">
+                <span className="eyebrow">Delhi · October 2026</span>
+                <span className="eyebrow">Not a live feed</span>
+              </div>
+              <ThemeToggle />
             </div>
           </nav>
 
