@@ -26,7 +26,7 @@ REF = ROOT / "data" / "processed" / "reference.duckdb"
 GPS = ROOT / "data" / "processed" / "gps"
 OUT = ROOT / "web-next" / "public" / "data"
 
-BINS = 16
+BINS = 64
 MIN_RUN_S = 20
 MAX_RUN_S = 1200
 # A ping further than this from the chord is a detour or a GPS outlier.
