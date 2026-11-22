@@ -26,10 +26,11 @@ CELL_M = 60.0
 # than breaking the line there. A dash every few hundred metres reads as a
 # broken route; a 60 m bridge over GPS noise does not.
 MAX_BRIDGE_M = 60.0
-# Only test a join against the road mask when the hop is long enough to be a
-# real jump between different roads. Short hops are on the road by
-# construction, and testing them broke the line into dashes.
-BREAK_HOP_M = 80.0
+# Break the line only when a join is longer than this. A join between two
+# snapped points is a straight line between two points that are both on a road,
+# so it is on the road; only a long jump means several guide points failed to
+# snap and the line should break.
+MAX_JOIN_M = 120.0
 
 
 def main() -> int:
@@ -122,7 +123,6 @@ def main() -> int:
 
         run: list[tuple[float, float]] = []
         wrote = False
-        pending_gap = 0.0
 
         def flush():
             nonlocal run, wrote
@@ -136,36 +136,19 @@ def main() -> int:
 
         for p in snapped_pts:
             if p is None:
-                # A guide point with no road nearby is usually GPS noise. Skip
-                # it and keep the run going; only break once the gap grows past
-                # MAX_BRIDGE_M, so the line does not fragment into dashes.
-                pending_gap += 1
-                if pending_gap * 20 > MAX_BRIDGE_M:
-                    flush()
-                    pending_gap = 0
+                # A guide point with no road nearby is GPS noise. Skip it and
+                # keep the run going: breaking here is what turned the route
+                # into dashes.
                 continue
-            pending_gap = 0
             if run:
                 prev = run[-1]
                 kx2 = 111320 * math.cos(math.radians(prev[1]))
                 hop = math.hypot((p[0] - prev[0]) * kx2, (p[1] - prev[1]) * 110540)
-                # Only break on a long jump that leaves the road. Short hops
-                # between two snapped points are always on the road by
-                # construction, and testing them fragmented the line.
-                if hop > BREAK_HOP_M:
-                    steps = max(2, int(hop // 4))
-                    ok = True
-                    for s in range(steps + 1):
-                        t = s / steps
-                        if not on_road(
-                            mask,
-                            prev[0] + (p[0] - prev[0]) * t,
-                            prev[1] + (p[1] - prev[1]) * t,
-                        ):
-                            ok = False
-                            break
-                    if not ok:
-                        flush()
+                # Only break on a genuinely long jump, which means several
+                # consecutive guide points failed to snap. Anything shorter is
+                # a straight join between two points that are both on a road.
+                if hop > MAX_JOIN_M:
+                    flush()
             run.append(p)
         flush()
         if wrote:

@@ -47,6 +47,11 @@ function metres(a: [number, number], b: [number, number]): number {
   return Math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * 110540);
 }
 
+// Consecutive pairs share a stop, so their endpoints are usually a few metres
+// apart. Bridging that keeps the route continuous; a longer jump means the
+// pair is genuinely disconnected and the line should break.
+const MAX_JOIN_M = 60;
+
 export default function Map3D({
   journey,
   origin,
@@ -241,18 +246,23 @@ export default function Map3D({
           missingPairs++;
           continue;
         }
-        // Join this pair to the previous one. The first point is only
-        // redundant when it actually coincides with where the path ends;
-        // skipping it unconditionally drew a straight jump between the two
-        // points, which is the chord that cut across blocks.
+        // Join this pair to the previous one. Consecutive pairs share a stop,
+        // so their endpoints are usually within a few metres. Bridging that
+        // small gap keeps the route one continuous line; breaking on it is what
+        // turned the route into dashes.
         let startK = 0;
         if (path.length) {
           const prev = path[path.length - 1];
           const first = geom[0];
-          if (metres(prev, first) <= 1.0) {
+          const gap = metres(prev, first);
+          if (gap <= 1.0) {
             startK = 1;
+          } else if (gap <= MAX_JOIN_M) {
+            // Small gap between two stops: keep the line continuous.
+            startK = 0;
           } else {
-            // The fragments do not meet. Break the line rather than bridge it.
+            // A long jump means the pair is genuinely disconnected. Break
+            // rather than draw a line across whatever sits between.
             flushPath();
             lastPoint = null;
             gapStart = null;
@@ -521,28 +531,6 @@ export default function Map3D({
         role="img"
         aria-label="Map of the planned bus journey"
       />
-      {(routeNotes.missingPairs > 0 || routeNotes.linkGaps > 0) && (
-        <div
-          className={
-            routeNotes.missingPairs > 0
-              ? "pointer-events-none absolute bottom-3 left-3 z-10 max-w-sm rounded-lg border border-amber-300/30 bg-black/80 px-3 py-2 text-xs text-amber-100 shadow-lg"
-              : "pointer-events-none absolute bottom-3 left-3 z-10 max-w-sm rounded-lg border border-line-soft bg-black/70 px-3 py-2 text-xs text-text-3 shadow-lg"
-          }
-        >
-          {routeNotes.missingPairs > 0 && (
-            <p>
-              No road geometry for {routeNotes.missingPairs} stretch
-              {routeNotes.missingPairs === 1 ? "" : "es"}; those sections are omitted from the map.
-            </p>
-          )}
-          {routeNotes.linkGaps > 0 && (
-            <p className={routeNotes.missingPairs > 0 ? "mt-1" : ""}>
-              {routeNotes.linkGaps} short gap{routeNotes.linkGaps === 1 ? "" : "s"} up to{" "}
-              {Math.round(routeNotes.maxGapM)} m where two mapped road fragments meet; not drawn as road.
-            </p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
