@@ -180,6 +180,7 @@ export default function Map3D({
     });
 
     map.current = m;
+    (window as unknown as { __map?: MlMap }).__map = m;
     return () => {
       m.remove();
       map.current = null;

@@ -99,8 +99,11 @@ def main() -> int:
             px, py = gx[k], gy[k]
             cx, cy = int(px // cell), int(py // cell)
             cand: list[int] = []
-            for ox in (-1, 0, 1):
-                for oy in (-1, 0, 1):
+            # Search a wide neighbourhood. A 3x3 window is only 180 m across,
+            # so a guide point in a gap could miss a road that is 2 m away but
+            # sits in a bucket two cells over.
+            for ox in range(-4, 5):
+                for oy in range(-4, 5):
                     cand.extend(buckets.get((cx + ox, cy + oy), ()))
             if not cand:
                 snapped_pts.append(None)
@@ -140,15 +143,6 @@ def main() -> int:
                 # keep the run going: breaking here is what turned the route
                 # into dashes.
                 continue
-            if run:
-                prev = run[-1]
-                kx2 = 111320 * math.cos(math.radians(prev[1]))
-                hop = math.hypot((p[0] - prev[0]) * kx2, (p[1] - prev[1]) * 110540)
-                # Only break on a genuinely long jump, which means several
-                # consecutive guide points failed to snap. Anything shorter is
-                # a straight join between two points that are both on a road.
-                if hop > MAX_JOIN_M:
-                    flush()
             run.append(p)
         flush()
         if wrote:
