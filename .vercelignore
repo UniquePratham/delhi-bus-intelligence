@@ -1,0 +1,27 @@
+# Deploy only the web app. The repository root holds tens of gigabytes of raw
+# GPS and ticketing data that must never be uploaded.
+#
+# Paths are anchored with a leading slash so they match only the repository
+# root. An unanchored `data/` also matches `web-next/public/data/`, which is the
+# model the site needs, and silently ships a site with no data.
+/data/
+/src/
+/tests/
+/docs/
+/scripts/
+/*.pdf
+/*.7z
+/*.zip
+/*.db
+/*.duckdb
+/*.parquet
+/*.csv
+/*.png
+/*.log
+
+# Never ship build output, dependencies or local env files.
+/web-next/node_modules
+/web-next/.next
+/web-next/.vercel
+/web-next/.env*
+/web-next/tsconfig.tsbuildinfo
