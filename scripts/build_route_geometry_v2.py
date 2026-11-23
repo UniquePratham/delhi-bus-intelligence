@@ -52,6 +52,9 @@ CONNECT_M = 25.0
 SNAP_MAX_M = 250.0
 # Consecutive stops further apart than this are a bad route pattern.
 MAX_PAIR_M = 3000.0
+# A connector edge is not road geometry. Charge it heavily so the router only
+# uses one where no real road path exists.
+CONNECTOR_COST_M = 400.0
 
 
 def tile_xy(lat: float, lon: float, z: int = Z) -> tuple[int, int]:
@@ -93,6 +96,10 @@ def build_network(bbox) -> dict:
     nodes: dict[tuple[float, float], int] = {}
     coords: list[tuple[float, float]] = []
     adj: dict[int, list[tuple[int, float]]] = {}
+    # Edges that came from a tile's own line geometry. Anything else was added
+    # by the connector pass and is not a road: it is a straight line between two
+    # nearby vertices, and it can clip a building corner.
+    road_edges: set[tuple[int, int]] = set()
 
     def nid(lon: float, lat: float) -> int:
         key = (round(lon, 5), round(lat, 5))
@@ -139,6 +146,7 @@ def build_network(bbox) -> dict:
                             )
                             adj[prev].append((cur, w))
                             adj[cur].append((prev, w))
+                            road_edges.add((min(prev, cur), max(prev, cur)))
                         prev = cur
     print(f"tiles: {tiles}  nodes: {len(coords)}  edges: {sum(len(v) for v in adj.values())//2}")
 
@@ -172,6 +180,7 @@ def build_network(bbox) -> dict:
     return {
         "coords": coords,
         "adj": adj,
+        "road_edges": road_edges,
         "nx": nx,
         "ny": ny,
         "lat0": lat0,
@@ -224,6 +233,7 @@ def main() -> int:
 
     coords = net["coords"]
     adj = net["adj"]
+    road_edges = net["road_edges"]
     nx, ny = net["nx"], net["ny"]
     lat0, lon0, kx = net["lat0"], net["lon0"], net["kx"]
     buckets, CELL = net["buckets"], net["cell"]
@@ -270,7 +280,13 @@ def main() -> int:
                     path.append(prev[path[-1]])
                 return path[::-1]
             for v, w in adj.get(u, ()):
-                nd = d + w
+                # A connector is not a road: it is a straight line between two
+                # nearby vertices and can clip a building corner. Charge it so
+                # the search prefers real road geometry, and only uses a
+                # connector where it is the only way through.
+                key = (min(u, v), max(u, v))
+                extra = 0.0 if key in road_edges else CONNECTOR_COST_M
+                nd = d + w + extra
                 if nd < dist.get(v, float("inf")):
                     dist[v] = nd
                     prev[v] = u
