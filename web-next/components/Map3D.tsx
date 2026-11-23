@@ -429,7 +429,7 @@ export default function Map3D({
             BAND_COLOR.unknown,
           ],
           "circle-stroke-width": 2,
-          "circle-stroke-color": "#06070a",
+          "circle-stroke-color": light ? "#f6f3ec" : "#14161a",
         },
       },
       belowBuildings
@@ -462,6 +462,16 @@ export default function Map3D({
     }
     m.setMinZoom(11);
     renderedKey.current = key;
+    // Re-apply the theme colours after drawing. The layers are created with the
+    // palette for the theme active at draw time, but a draw can land before the
+    // theme is applied, which leaves one segment in the wrong colour.
+    const lightNow = document.documentElement.dataset.theme === "light";
+    if (m.getLayer("rt-line")) {
+      m.setPaintProperty("rt-line", "line-color", lightNow ? "#1d4e79" : "#e2ecff");
+    }
+    if (m.getLayer("rt-glow")) {
+      m.setPaintProperty("rt-glow", "line-color", lightNow ? "#4a7fae" : "#7aa8ff");
+    }
     // A stable, inspectable signal that the route is on the map. The smoke
     // test waits on this instead of guessing at a delay.
     if (holder.current) {

@@ -39,6 +39,8 @@ NO_ACCESS = {"private", "no", "customers", "delivery"}
 BRIDGE_OVER_M = 60.0
 MAX_BRIDGE_M = 1500.0
 NODE_TOL = 1e-5
+# Radius for joining vertices that adjacent tiles place a few metres apart.
+CONNECT_M = 25.0
 
 
 def tile_xy(lat: float, lon: float, z: int = Z) -> tuple[int, int]:
@@ -136,6 +138,11 @@ def main() -> int:
                         prev = cur
     print(f"tiles: {tiles}  nodes: {len(coords)}  edges: {sum(len(v) for v in adj.values())//2}")
 
+    # Adjacent tiles rarely share exact vertices, so the raw graph arrives
+    # shattered: 67,903 components, the largest holding only 11% of nodes. With
+    # that fragmentation most joins have no path and are left as straight lines.
+    # Bridge vertices that are within CONNECT_M of each other so the network is
+    # actually connected.
     lat0 = float(lats.min())
     lon0 = float(lons.min())
     kx = 111320 * math.cos(math.radians(float(lats.mean())))
@@ -146,6 +153,21 @@ def main() -> int:
     buckets: dict[tuple[int, int], list[int]] = {}
     for i in range(len(coords)):
         buckets.setdefault((int(nx[i] // CELL), int(ny[i] // CELL)), []).append(i)
+
+    added = 0
+    for i in range(len(coords)):
+        cx, cy = int(nx[i] // CELL), int(ny[i] // CELL)
+        for ox in (-1, 0, 1):
+            for oy in (-1, 0, 1):
+                for j in buckets.get((cx + ox, cy + oy), ()):
+                    if j <= i:
+                        continue
+                    d = math.hypot(nx[j] - nx[i], ny[j] - ny[i])
+                    if d <= CONNECT_M:
+                        adj[i].append((j, d))
+                        adj[j].append((i, d))
+                        added += 1
+    print(f"connector edges: {added}")
 
     def nearest(px: float, py: float) -> tuple[int, float]:
         cx, cy = int(px // CELL), int(py // CELL)
