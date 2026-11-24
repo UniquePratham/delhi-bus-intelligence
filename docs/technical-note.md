@@ -174,20 +174,34 @@ but a single generic word like "Terminal" cannot link two unrelated places.
 ## 6. Known limitations
 
 1. **Route geometry is reconstructed.** `shapes.txt` is absent from the feed, so
-   map lines are rebuilt on the basemap's road network. The road graph comes from
-   CARTO's vector tiles (725,259 unique centerline edges over 665,790 nodes),
-   stitched where tile clipping leaves neighbouring vertices a few metres apart
-   and bridged where the network arrives in disconnected fragments. Every
-   consecutive station pair on every route is then routed on that graph with an
-   A* search: 12,316 of 12,352 pairs (99.7%) get a path. A drawn point is always
-   a graph node, a tile-stitch hop of at most 30 m is drawn as the same pavement,
-   and a longer component bridge is never drawn, the line is split instead.
-   Nothing falls back to a station-to-station chord: the 36 pairs with no path
-   are omitted from the map and named in the UI. An independent audit (20 m
-   road-centerline pieces, 1.75 M sampled points along the drawn lines) gives a
-   median distance of 0.08 m, p99 5.2 m and no point beyond 25 m. Median
-   road/chord ratio is 1.20; the tail (up to 12×) is real, not error — those
-   pairs cross the Central Vista, the Ridge forest or the Yamuna.
+   no official route geometry exists. Map lines are rebuilt by routing every
+   consecutive station pair on the **real OpenStreetMap Delhi road network**,
+   extracted from the Geofabrik India PBF with pyosmium: 922,941 nodes and
+   1,961,233 edges in one strongly connected component, with real junction
+   topology and one-way tags.
+
+   A station is not an OSM node, so it is **projected onto the nearest road
+   segment** rather than snapped to the nearest node. The projection point is on
+   the road by construction; it becomes a synthetic node with two edges to that
+   segment's endpoints, weighted by the split of the segment's length. Median
+   station offset is 3.7 m (p90 11.4 m). Consecutive pairs share the exact same
+   synthetic node, so a route drawn from these pairs is continuous by
+   construction.
+
+   An earlier version snapped to the nearest node and searched alternative
+   nearby nodes to dodge U-turns, then joined the winner back to the canonical
+   node with a straight line. That join is not a road: an audit found 6,916
+   drawn links that were not OSM edges and 899 pairs with a point more than 25 m
+   from any road. The alternative search is gone. A U-turn around a block is
+   what the bus actually drives; drawing it is honest, drawing a line through
+   the block is not.
+
+   Nothing falls back to a station-to-station chord. An independent audit
+   (`scripts/audit_osm_roads.py`, 20 m road pieces, 1.7 M sampled points along
+   the drawn lines) measures the distance from every drawn point to the nearest
+   OSM road and confirms every drawn link is an actual graph edge. Pairs whose
+   road path exceeds 8× the straight-line gap are omitted from the map and
+   counted on screen rather than drawn as a shortcut.
 2. **Crowding coverage.** 63% of routes have any crowding estimate, and 87% of
    cells are low confidence. 909 ticket route strings have no GTFS route at all.
 3. **No live data.** Everything is a historical October 2026 snapshot.

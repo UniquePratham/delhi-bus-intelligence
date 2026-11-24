@@ -1,0 +1,115 @@
+{
+  "total_s": 178.702,
+  "scenes": [
+    {
+      "id": "01_hero",
+      "action": "hero",
+      "caption": "Delhi, October 2026. Eleven days of bus GPS, 2.5 million tickets.",
+      "audio": "data/artifacts/narration/01_hero.wav",
+      "speech_s": 16.608,
+      "hold_s": 17.158,
+      "start_s": 0.0,
+      "end_s": 17.158
+    },
+    {
+      "id": "02_load",
+      "action": "load",
+      "caption": "3,688 stations. 2,403 routes. 803,764 travel-time profiles.",
+      "audio": "data/artifacts/narration/02_load.wav",
+      "speech_s": 14.592,
+      "hold_s": 15.142,
+      "start_s": 17.158,
+      "end_s": 32.3
+    },
+    {
+      "id": "03_autocomplete",
+      "action": "autocomplete",
+      "caption": "Type three letters. The station list resolves as you type.",
+      "audio": "data/artifacts/narration/03_autocomplete.wav",
+      "speech_s": 9.761,
+      "hold_s": 10.311,
+      "start_s": 32.3,
+      "end_s": 42.61
+    },
+    {
+      "id": "04_plan",
+      "action": "plan",
+      "caption": "Kashmere Gate to Nehru Place, 08:30 on a Thursday.",
+      "audio": "data/artifacts/narration/04_plan.wav",
+      "speech_s": 15.505,
+      "hold_s": 16.055,
+      "start_s": 42.61,
+      "end_s": 58.665
+    },
+    {
+      "id": "05_map",
+      "action": "map",
+      "caption": "Every line is routed on the real OpenStreetMap Delhi road network.",
+      "audio": "data/artifacts/narration/05_map.wav",
+      "speech_s": 29.445,
+      "hold_s": 29.995,
+      "start_s": 58.665,
+      "end_s": 88.66
+    },
+    {
+      "id": "06_3d",
+      "action": "mode",
+      "caption": "2D and 3D. The route is drawn beneath the buildings, never over them.",
+      "audio": "data/artifacts/narration/06_3d.wav",
+      "speech_s": 10.382,
+      "hold_s": 10.932,
+      "start_s": 88.66,
+      "end_s": 99.591
+    },
+    {
+      "id": "07_pref",
+      "action": "pref",
+      "caption": "Rank by fastest, balanced, or calmer.",
+      "audio": "data/artifacts/narration/07_pref.wav",
+      "speech_s": 10.988,
+      "hold_s": 11.538,
+      "start_s": 99.591,
+      "end_s": 111.129
+    },
+    {
+      "id": "08_hour",
+      "action": "hour",
+      "caption": "The same trip, every hour. 23 to 37 minutes.",
+      "audio": "data/artifacts/narration/08_hour.wav",
+      "speech_s": 12.899,
+      "hold_s": 13.449,
+      "start_s": 111.129,
+      "end_s": 124.579
+    },
+    {
+      "id": "09_crowd",
+      "action": "crowd",
+      "caption": "Crowding along a route, from ticketing data. A relative index, never occupancy.",
+      "audio": "data/artifacts/narration/09_crowd.wav",
+      "speech_s": 18.51,
+      "hold_s": 19.06,
+      "start_s": 124.579,
+      "end_s": 143.639
+    },
+    {
+      "id": "10_evidence",
+      "action": "evidence",
+      "caption": "22.4 s segment error against 41.6 s for the timetable.",
+      "audio": "data/artifacts/narration/10_evidence.wav",
+      "speech_s": 22.191,
+      "hold_s": 22.741,
+      "start_s": 143.639,
+      "end_s": 166.38
+    },
+    {
+      "id": "11_close",
+      "action": "close",
+      "caption": "Delhi Bus Intelligence \u2014 Transport Stack Hackathon 2026.",
+      "audio": "data/artifacts/narration/11_close.wav",
+      "speech_s": 11.772,
+      "hold_s": 12.322,
+      "start_s": 166.38,
+      "end_s": 178.702
+    }
+  ]
+}

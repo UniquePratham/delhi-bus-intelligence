@@ -1,0 +1,72 @@
+{
+  "voice": "Microsoft Hazel Desktop",
+  "rate": 1,
+  "scenes": [
+    {
+      "id": "01_hero",
+      "action": "hero",
+      "caption": "Delhi, October 2026. Eleven days of bus GPS, 2.5 million tickets.",
+      "text": "Delhi runs on buses. Every one reports its position every few seconds. Eleven days of that signal, plus two and a half million tickets, is enough to know how fast this city actually moves. This is Delhi Bus Intelligence."
+    },
+    {
+      "id": "02_load",
+      "action": "load",
+      "caption": "3,688 stations. 2,403 routes. 803,764 travel-time profiles.",
+      "text": "The whole model loads into your browser once. Three thousand six hundred stations, two thousand four hundred routes, eight hundred thousand travel time profiles. After that every query runs locally."
+    },
+    {
+      "id": "03_autocomplete",
+      "action": "autocomplete",
+      "caption": "Type three letters. The station list resolves as you type.",
+      "text": "Three letters is enough. The station list resolves as you type, and the arrow keys pick a match, so nobody has to remember a full stop name."
+    },
+    {
+      "id": "04_plan",
+      "action": "plan",
+      "caption": "Kashmere Gate to Nehru Place, 08:30 on a Thursday.",
+      "text": "Kashmere Gate to Nehru Place, half past eight on a Thursday. The planner searches by route boarding, not station hop, so one bus across twenty stops costs one boarding. It returns three genuinely different options."
+    },
+    {
+      "id": "05_map",
+      "action": "map",
+      "caption": "Every line is routed on the real OpenStreetMap Delhi road network.",
+      "text": "The map is the part most projects fake. The bus feed ships no route geometry at all, so every line here is routed on the real OpenStreetMap Delhi road network. Nine hundred thousand nodes, two million edges, real junctions and one way tags. An independent audit samples two million points along these lines and finds a median distance of eight centimetres to the nearest road. Nothing is drawn as a straight line across a block."
+    },
+    {
+      "id": "06_3d",
+      "action": "mode",
+      "caption": "2D and 3D. The route is drawn beneath the buildings, never over them.",
+      "text": "In three dimensions the route stays on the ground, drawn beneath the buildings rather than painted over their roofs. The geometry is identical in both modes."
+    },
+    {
+      "id": "07_pref",
+      "action": "pref",
+      "caption": "Rank by fastest, balanced, or calmer.",
+      "text": "Rank by fastest, balanced, or calmer. Calmer trades a few minutes for a bus with seats, because the second problem statement is built into the same planner."
+    },
+    {
+      "id": "08_hour",
+      "action": "hour",
+      "caption": "The same trip, every hour. 23 to 37 minutes.",
+      "text": "A trip is not one number. The timetable assumes a fixed speed, but this journey ranges from twenty three minutes to thirty seven. That spread is the whole reason the timetable is wrong."
+    },
+    {
+      "id": "09_crowd",
+      "action": "crowd",
+      "caption": "Crowding along a route, from ticketing data. A relative index, never occupancy.",
+      "text": "Crowding comes from the ticketing data, grouped by route, direction, stop and hour. Green means seats, amber standing room, red crowded, grey no evidence. It is a relative index from a two percent sample, so it is never reported as an occupancy percentage."
+    },
+    {
+      "id": "10_evidence",
+      "action": "evidence",
+      "caption": "22.4 s segment error against 41.6 s for the timetable.",
+      "text": "And the numbers are measured, not claimed. Segment error is twenty two point four seconds against forty one point six for the timetable, a forty six percent reduction on one point two four million runs. On four hundred real journeys the planner is off by under a minute. Every figure is reproducible from a script in the repository."
+    },
+    {
+      "id": "11_close",
+      "action": "close",
+      "caption": "Delhi Bus Intelligence — Transport Stack Hackathon 2026.",
+      "text": "Delhi Bus Intelligence. Historical estimates, not a live feed, and honest about it. Code, data audit and technical note are all in the public repository."
+    }
+  ]
+}

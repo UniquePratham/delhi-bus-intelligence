@@ -36,3 +36,7 @@ Thumbs.db
 .env*
 
 cache/
+
+# Local-only: problem statements, prompts and checksums. Never pushed.
+local-only/
+HANDOVER.md

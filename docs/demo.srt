@@ -1,0 +1,43 @@
+1
+00:00:00,000 --> 00:00:17,158
+Delhi, October 2026. Eleven days of bus GPS, 2.5 million tickets.
+
+2
+00:00:17,158 --> 00:00:32,300
+3,688 stations. 2,403 routes. 803,764 travel-time profiles.
+
+3
+00:00:32,300 --> 00:00:42,610
+Type three letters. The station list resolves as you type.
+
+4
+00:00:42,610 --> 00:00:58,665
+Kashmere Gate to Nehru Place, 08:30 on a Thursday.
+
+5
+00:00:58,665 --> 00:01:28,660
+Every line is routed on the real OpenStreetMap Delhi road network.
+
+6
+00:01:28,660 --> 00:01:39,591
+2D and 3D. The route is drawn beneath the buildings, never over them.
+
+7
+00:01:39,591 --> 00:01:51,129
+Rank by fastest, balanced, or calmer.
+
+8
+00:01:51,129 --> 00:02:04,579
+The same trip, every hour. 23 to 37 minutes.
+
+9
+00:02:04,579 --> 00:02:23,639
+Crowding along a route, from ticketing data. A relative index, never occupancy.
+
+10
+00:02:23,639 --> 00:02:46,380
+22.4 s segment error against 41.6 s for the timetable.
+
+11
+00:02:46,380 --> 00:02:58,702
+Delhi Bus Intelligence — Transport Stack Hackathon 2026.

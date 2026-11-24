@@ -152,15 +152,21 @@ Read [technical-note.md](docs/technical-note.md) for the full method.
   Missing values are reported as `unknown`, never as "not crowded". In practice
   72% of bus legs in a typical journey do carry an estimate.
 * **Route geometry is reconstructed, not published.** `shapes.txt` is absent
-  from the feed, so every station pair a route can traverse is routed on the
-  basemap's real road centerlines (`scripts/route_on_roads.py`). 99.7% of the
-  12,352 route pairs have a road path. The 36 that do not are omitted from the
-  map and named on screen; not one is drawn as a straight chord. An independent
-  audit of 1.75 M points along the drawn lines measures a median distance of
-  0.08 m to the nearest road centerline, p99 5.2 m, and none beyond 25 m. Where
-  the road genuinely goes around a barrier the line follows it: pairs across the
-  Central Vista, the Ridge and the Yamuna are 3–12× their straight-line gap,
-  which is what a bus actually drives.
+  from the feed, so no official route geometry exists. Every consecutive station
+  pair on every route is routed on the **real OpenStreetMap Delhi road network**
+  (`scripts/route_on_osm.py`), extracted from the Geofabrik India PBF: 922,941
+  nodes, 1,961,233 edges, one strongly connected component, with real junction
+  topology and one-way tags. Each station is projected onto the nearest road
+  segment (median offset 3.7 m) rather than snapped to the nearest node, so
+  every drawn point is on a road by construction and consecutive pairs share an
+  exact endpoint. An independent audit (`scripts/audit_osm_roads.py`) samples
+  1.7 M points along the drawn lines and measures the distance to the nearest
+  OSM road, and confirms every drawn link is an actual graph edge. Not one pair
+  is drawn as a straight chord: a pair whose road path exceeds 8× the
+  straight-line gap is omitted from the map and counted on screen. Where the
+  road genuinely goes around a barrier the line follows it — pairs across the
+  Central Vista, the Ridge and the Yamuna are several times their straight-line
+  gap, which is what a bus actually drives.
 * **No Google Maps comparison.** Its terms forbid scraping, and a car route is
   not a bus route. Validation uses 400 real observed bus trips instead.
 
@@ -251,13 +257,17 @@ python scripts/ui_smoke.py            # map UI renders in a real browser
 | Segment MAE, baselines | `python -m dbi.traffic.evaluate` |
 | Journey MAE vs real trips | `python -m dbi.journey.validate --sample 400` |
 | Crowding pattern checks | `python -m dbi.crowding.evaluate` |
-| Map route geometry (road-only, no chords) | `python scripts/route_on_roads.py` |
-| On-road audit of every drawn point | `python scripts/audit_on_road.py` |
-| Geometry plausibility | `python scripts/validate_geometry.py` |
+| Build the OSM Delhi road graph | `python scripts/build_osm_from_pbf.py` |
+| Route every station pair on OSM | `python scripts/route_on_osm.py` |
+| On-road audit of every drawn point | `python scripts/audit_osm_roads.py` |
+| Demo routes are continuous | `python scripts/check_continuity.py` |
 
-`scripts/build_route_geometry.py` and `scripts/ensure_route_geometry.py` are the
-older two-stage pipeline (GPS corridor, then road matching). They are superseded:
-running either one overwrites `web-next/public/data/geom_*.bin` with geometry
-that has no on-road guarantee.
+`scripts/route_on_roads.py` and the older two-stage pipeline
+(`build_route_geometry.py`, `ensure_route_geometry.py`, `snap_guide_to_roads.py`
+and friends) are superseded. They routed on CARTO *rendering* tiles, which are
+not a routing network: fragmented topology, duplicate carriageways and missing
+links. Running any of them overwrites `web-next/public/data/geom_*.bin` with
+geometry that has no on-road guarantee. `route_on_osm.py` is the only supported
+builder.
 
 Outputs land in `data/artifacts/`.
