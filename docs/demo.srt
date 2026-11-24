@@ -27,17 +27,17 @@ Every line is routed on the real OpenStreetMap Delhi road network.
 Rank by fastest, balanced, or calmer.
 
 8
-00:01:51,129 --> 00:02:04,579
-The same trip, every hour. 23 to 37 minutes.
+00:01:51,129 --> 00:02:04,516
+The same trip, every hour. 27 to 48 minutes.
 
 9
-00:02:04,579 --> 00:02:23,639
+00:02:04,516 --> 00:02:23,577
 Crowding along a route, from ticketing data. A relative index, never occupancy.
 
 10
-00:02:23,639 --> 00:02:46,380
+00:02:23,577 --> 00:02:46,318
 22.4 s segment error against 41.6 s for the timetable.
 
 11
-00:02:46,380 --> 00:02:58,702
+00:02:46,318 --> 00:02:58,640
 Delhi Bus Intelligence — Transport Stack Hackathon 2026.

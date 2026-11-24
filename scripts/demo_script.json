@@ -47,8 +47,8 @@
     {
       "id": "08_hour",
       "action": "hour",
-      "caption": "The same trip, every hour. 23 to 37 minutes.",
-      "text": "A trip is not one number. The timetable assumes a fixed speed, but this journey ranges from twenty three minutes to thirty seven. That spread is the whole reason the timetable is wrong."
+      "caption": "The same trip, every hour. 27 to 48 minutes.",
+      "text": "A trip is not one number. The timetable assumes a fixed speed, but this journey ranges from twenty seven minutes to forty eight. That spread is the whole reason the timetable is wrong."
     },
     {
       "id": "09_crowd",

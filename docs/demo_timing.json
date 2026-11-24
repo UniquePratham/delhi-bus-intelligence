@@ -1,5 +1,5 @@
 {
-  "total_s": 178.702,
+  "total_s": 178.64,
   "scenes": [
     {
       "id": "01_hero",
@@ -74,12 +74,12 @@
     {
       "id": "08_hour",
       "action": "hour",
-      "caption": "The same trip, every hour. 23 to 37 minutes.",
+      "caption": "The same trip, every hour. 27 to 48 minutes.",
       "audio": "data/artifacts/narration/08_hour.wav",
-      "speech_s": 12.899,
-      "hold_s": 13.449,
+      "speech_s": 12.837,
+      "hold_s": 13.387,
       "start_s": 111.129,
-      "end_s": 124.579
+      "end_s": 124.516
     },
     {
       "id": "09_crowd",
@@ -88,8 +88,8 @@
       "audio": "data/artifacts/narration/09_crowd.wav",
       "speech_s": 18.51,
       "hold_s": 19.06,
-      "start_s": 124.579,
-      "end_s": 143.639
+      "start_s": 124.516,
+      "end_s": 143.577
     },
     {
       "id": "10_evidence",
@@ -98,8 +98,8 @@
       "audio": "data/artifacts/narration/10_evidence.wav",
       "speech_s": 22.191,
       "hold_s": 22.741,
-      "start_s": 143.639,
-      "end_s": 166.38
+      "start_s": 143.577,
+      "end_s": 166.318
     },
     {
       "id": "11_close",
@@ -108,8 +108,8 @@
       "audio": "data/artifacts/narration/11_close.wav",
       "speech_s": 11.772,
       "hold_s": 12.322,
-      "start_s": 166.38,
-      "end_s": 178.702
+      "start_s": 166.318,
+      "end_s": 178.64
     }
   ]
 }
