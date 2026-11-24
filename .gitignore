@@ -34,3 +34,5 @@ out/
 Thumbs.db
 .vercel
 .env*
+
+cache/
