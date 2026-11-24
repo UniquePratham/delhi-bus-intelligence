@@ -558,6 +558,22 @@ export default function Map3D({
   useEffect(() => {
     const m = map.current;
     if (!m) return;
+
+    // Capture the style's own paint values once, so switching back to dark
+    // restores exactly what the basemap shipped. Replacing a zoom-stop
+    // expression with a flat colour looks similar but is not the same, and
+    // landuse_residential loses its opacity ramp.
+    const original = new Map<string, unknown>();
+    const remember = (id: string, prop: string) => {
+      const key = `${id}:${prop}`;
+      if (original.has(key)) return;
+      try {
+        original.set(key, m.getPaintProperty(id, prop));
+      } catch {
+        /* not a paint property */
+      }
+    };
+
     const apply = () => {
       if (!m.isStyleLoaded()) return;
       const isLight = document.documentElement.dataset.theme === "light";
@@ -565,54 +581,70 @@ export default function Map3D({
       const water = isLight ? "#c9d6d8" : "#1b2a33";
       const road = isLight ? "#c3b9a6" : "#3a4048";
       const label = isLight ? "#6b655a" : "#8a857c";
+
       for (const layer of m.getStyle().layers ?? []) {
         if (layer.type === "background") {
-          m.setPaintProperty(layer.id, "background-color", ground);
+          remember(layer.id, "background-color");
+          m.setPaintProperty(
+            layer.id,
+            "background-color",
+            isLight ? ground : (original.get(`${layer.id}:background-color`) ?? ground)
+          );
         }
         if (layer.type === "fill" && /water/i.test(layer.id)) {
-          m.setPaintProperty(layer.id, "fill-color", water);
+          remember(layer.id, "fill-color");
+          m.setPaintProperty(
+            layer.id,
+            "fill-color",
+            isLight ? water : (original.get(`${layer.id}:fill-color`) ?? water)
+          );
         }
-        // The basemap's own flat building fills read as harsh black blocks on
-        // a light ground. The extruded layer replaces them, so hide the flat
-        // ones in light mode.
-        if (
-          isLight &&
-          layer.type === "fill" &&
-          /^building/i.test(layer.id)
-        ) {
-          m.setLayoutProperty(layer.id, "visibility", "none");
+        if (layer.type === "fill" && /^building/i.test(layer.id)) {
+          m.setLayoutProperty(layer.id, "visibility", isLight ? "none" : "visible");
         }
-        // Landuse fills (parks, industrial, residential) are near-black in the
-        // dark style. On a light ground they read as holes, so tint them to
-        // the paper instead. These layers use zoom-stop expressions, so a flat
-        // colour is rejected - the expression has to be replaced wholesale.
-        if (isLight && layer.type === "fill" && /landuse|landcover|park/i.test(layer.id)) {
+        if (layer.type === "fill" && /landuse|landcover|park/i.test(layer.id)) {
+          remember(layer.id, "fill-color");
+          remember(layer.id, "fill-opacity");
           try {
-            m.setPaintProperty(layer.id, "fill-color", "#e4ddcd");
-            m.setPaintProperty(layer.id, "fill-opacity", 0.5);
-          } catch {
-            /* data-driven */
-          }
-        }
-        if (isLight && /^building/i.test(layer.id)) {
-          try {
-            m.setPaintProperty(layer.id, "fill-color", "#ddd5c4");
-            m.setPaintProperty(layer.id, "fill-opacity", 0.9);
+            if (isLight) {
+              m.setPaintProperty(layer.id, "fill-color", "#e4ddcd");
+              m.setPaintProperty(layer.id, "fill-opacity", 0.5);
+            } else {
+              const c = original.get(`${layer.id}:fill-color`);
+              const o = original.get(`${layer.id}:fill-opacity`);
+              if (c !== undefined) m.setPaintProperty(layer.id, "fill-color", c);
+              if (o !== undefined) m.setPaintProperty(layer.id, "fill-opacity", o);
+            }
           } catch {
             /* data-driven */
           }
         }
         if (layer.type === "line" && /road|street|highway|bridge|tunnel/i.test(layer.id)) {
+          remember(layer.id, "line-color");
           try {
-            m.setPaintProperty(layer.id, "line-color", road);
+            m.setPaintProperty(
+              layer.id,
+              "line-color",
+              isLight ? road : (original.get(`${layer.id}:line-color`) ?? road)
+            );
           } catch {
             /* data-driven */
           }
         }
         if (layer.type === "symbol") {
+          remember(layer.id, "text-color");
+          remember(layer.id, "text-halo-color");
           try {
-            m.setPaintProperty(layer.id, "text-color", label);
-            m.setPaintProperty(layer.id, "text-halo-color", ground);
+            m.setPaintProperty(
+              layer.id,
+              "text-color",
+              isLight ? label : (original.get(`${layer.id}:text-color`) ?? label)
+            );
+            m.setPaintProperty(
+              layer.id,
+              "text-halo-color",
+              isLight ? ground : (original.get(`${layer.id}:text-halo-color`) ?? ground)
+            );
           } catch {
             /* not a text layer */
           }
