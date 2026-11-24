@@ -169,7 +169,7 @@ export default function Page() {
           <div className="absolute left-1/2 top-0 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-accent/[0.07] blur-[140px]" />
         </div>
 
-        <div className="relative mx-auto max-w-[1440px] px-6 pb-10 pt-8 lg:px-10">
+        <div className="relative mx-auto max-w-[1680px] px-6 pb-10 pt-8 lg:px-10">
           <nav className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="relative flex h-1.5 w-1.5">
@@ -221,7 +221,7 @@ export default function Page() {
       </section>
 
       {loadError && (
-        <div className="mx-auto max-w-[1440px] px-6 py-6 lg:px-10">
+        <div className="mx-auto max-w-[1680px] px-6 py-6 lg:px-10">
           <p className="border-l-2 border-crowded pl-4 text-sm text-crowded">
             Could not load the model: {loadError}
           </p>
@@ -229,7 +229,7 @@ export default function Page() {
       )}
 
       {!planner && !loadError && (
-        <div className="mx-auto max-w-[1440px] px-6 py-24 lg:px-10">
+        <div className="mx-auto max-w-[1680px] px-6 py-24 lg:px-10">
           <div className="flex items-baseline justify-between">
             <span className="eyebrow">Loading the network model</span>
             <span className="mono text-[11px] text-text-3">{loadPct}%</span>
@@ -251,7 +251,7 @@ export default function Page() {
         <>
           {/* ---------- Planner + map ---------- */}
           <section className="relative">
-            <div className="grid lg:grid-cols-[420px_1fr]">
+            <div className="grid lg:grid-cols-[clamp(340px,26vw,440px)_1fr]">
               {/* Left rail */}
               <div className="relative z-10 border-r border-line-soft bg-ink px-6 py-8 lg:px-8">
                 <form
@@ -536,7 +536,7 @@ export default function Page() {
 
           {/* ---------- Signature visual: the day ---------- */}
           <section className="border-t border-line-soft">
-            <div className="mx-auto max-w-[1440px] px-6 py-16 lg:px-10">
+            <div className="mx-auto max-w-[1680px] px-6 py-16 lg:px-10">
               <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
                 <div>
                   <span className="eyebrow">The same trip, every hour</span>
@@ -597,7 +597,7 @@ export default function Page() {
       )}
 
       <footer className="border-t border-line-soft">
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-6 py-8 text-[11px] text-text-3 sm:flex-row sm:items-center sm:justify-between lg:px-10">
+        <div className="mx-auto flex max-w-[1680px] flex-col gap-3 px-6 py-8 text-[11px] text-text-3 sm:flex-row sm:items-center sm:justify-between lg:px-10">
           <p>
             Built for Transport Stack Hackathon 2026. Data: DTC bus GPS and ONDC
             e-ticketing, October 2026.
@@ -746,7 +746,7 @@ function CrowdingSection({ planner, hour }: { planner: Planner; hour: number }) 
 
   return (
     <section className="border-t border-line-soft">
-      <div className="mx-auto max-w-[1440px] px-6 py-16 lg:px-10">
+      <div className="mx-auto max-w-[1680px] px-6 py-16 lg:px-10">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
           <div>
             <span className="eyebrow">Crowding, stretch by stretch</span>
@@ -813,7 +813,7 @@ function Method({ meta }: { meta: any }) {
 
   return (
     <section className="border-t border-line-soft">
-      <div className="mx-auto max-w-[1440px] px-6 py-16 lg:px-10">
+      <div className="mx-auto max-w-[1680px] px-6 py-16 lg:px-10">
         <span className="eyebrow">Method &amp; evidence</span>
         <h2 className="display mt-4 max-w-2xl text-balance text-[clamp(1.9rem,3.4vw,3rem)] text-text">
           Measured, not claimed.
