@@ -10,6 +10,22 @@ that degrades gracefully when its data is thin.
 > **These estimates are historical, not live.** Both datasets are October 2026
 > snapshots. Nothing here is a live feed, and the UI says so.
 
+## Submission deliverables
+
+| Item | Where |
+|---|---|
+| Proposal — problem, approach, data | [docs/proposal.md](docs/proposal.md) |
+| Working prototype | <https://delhi-bus-intelligence.vercel.app> |
+| Source code + README | this repository |
+| Technical note — method, assumptions, limitations | [docs/technical-note.md](docs/technical-note.md) |
+| Demo video | [docs/demo.mp4](docs/demo.mp4) |
+
+Supporting detail: [data-audit.md](docs/data-audit.md),
+[assumptions-limitations.md](docs/assumptions-limitations.md),
+[evaluation-traffic.md](docs/evaluation-traffic.md),
+[evaluation-crowding.md](docs/evaluation-crowding.md),
+[architecture.md](docs/architecture.md), [api-contract.md](docs/api-contract.md).
+
 ## What it does
 
 * Predicts bus travel time between any two stations, varying by hour of week.
@@ -89,6 +105,28 @@ npx vercel --prod
 The deployment uses the checked-in static model artifacts under
 [`web-next/public/data`](web-next/public/data) and caches them immutably.
 
+> **Vercel project setting:** the project's **Root Directory must be
+> `web-next`**. With it empty, a Git build runs `npm install` at the repo root,
+> where there is no `package.json`, and fails in four seconds with
+> `ENOENT ... /vercel/path0/package.json`.
+
+## Demo video
+
+[`docs/demo.mp4`](docs/demo.mp4) — 2:52, narrated, with burned-in subtitles.
+It walks the whole prototype: autocomplete, planning, the OSM-routed map, the
+2D/3D toggle, preference re-ranking, the hour curve, the crowding explorer and
+the evidence section.
+
+Rebuild it (needs `ffmpeg` and a running site):
+
+```bash
+python scripts/make_narration.py                      # voice + subtitles
+python scripts/record_narrated_demo.py http://127.0.0.1:3100/
+```
+
+`scripts/demo_script.json` holds the narration and captions; edit it and re-run
+both commands to change the video.
+
 ## API
 
 | Endpoint | Purpose |
@@ -159,14 +197,18 @@ Read [technical-note.md](docs/technical-note.md) for the full method.
   topology and one-way tags. Each station is projected onto the nearest road
   segment (median offset 3.7 m) rather than snapped to the nearest node, so
   every drawn point is on a road by construction and consecutive pairs share an
-  exact endpoint. An independent audit (`scripts/audit_osm_roads.py`) samples
-  1.7 M points along the drawn lines and measures the distance to the nearest
-  OSM road, and confirms every drawn link is an actual graph edge. Not one pair
-  is drawn as a straight chord: a pair whose road path exceeds 8× the
-  straight-line gap is omitted from the map and counted on screen. Where the
-  road genuinely goes around a barrier the line follows it — pairs across the
-  Central Vista, the Ridge and the Yamuna are several times their straight-line
-  gap, which is what a bus actually drives.
+  exact endpoint. 12,175 of 12,352 pairs (98.6%) get a path; the 23 with no path
+  and 154 whose stations are more than 3 km apart are omitted from the map and
+  counted on screen, never drawn as a shortcut.
+
+  An independent audit (`scripts/audit_osm_roads.py`) samples 2.22 M points
+  along the drawn lines at 10 m spacing and measures the distance to the nearest
+  OSM road: **median 0.08 m, p90 0.23 m, p99 0.33 m, max 6.98 m, and zero pairs
+  with any point beyond 25 m**. Zero pairs are drawn as a bare station-to-station
+  chord. All three demo routes are complete and continuous: 0 missing pairs,
+  0 breaks, 0 m worst gap. Where the road genuinely goes around a barrier the
+  line follows it — High Court to Zoo is 217 m apart and 1,924 m by road, which
+  is what a bus actually drives.
 * **No Google Maps comparison.** Its terms forbid scraping, and a car route is
   not a bus route. Validation uses 400 real observed bus trips instead.
 

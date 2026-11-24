@@ -137,7 +137,7 @@ API so a client can change the balance.
 
 | Limitation | Consequence |
 |---|---|
-| No `shapes.txt` in the feed | Map lines are routed on basemap road centerlines: 99.7% of the 12,352 route pairs have a road path, and the 36 that do not are omitted (never drawn as a chord). Median drawn point sits 0.08 m from a road centerline |
+| No `shapes.txt` in the feed | Map lines are routed on the real OpenStreetMap Delhi road network: 12,175 of 12,352 route pairs (98.6%) have a road path, and the rest are omitted (never drawn as a chord). An independent audit of 2.22 M sampled points gives a median distance of 0.08 m to the nearest OSM road, p99 0.33 m, max 6.98 m, and zero pairs beyond 25 m |
 | No live feed | Everything is a historical October 2026 snapshot |
 | Eleven days of GPS | A full week plus three later Thursdays; no seasonal effects |
 | No bus length data | Capacity cannot be adjusted per vehicle class |

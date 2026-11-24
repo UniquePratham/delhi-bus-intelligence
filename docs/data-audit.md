@@ -104,8 +104,8 @@ download endpoint returns HTTP 504.
 
 `shapes.txt` is **absent** from this feed, so published route geometry is not
 available. The project works from stop sequences for travel times, and routes
-map polylines on the basemap's road centerlines for the map (see
-`scripts/route_on_roads.py`).
+map polylines on the real OpenStreetMap Delhi road network for the map (see
+`scripts/build_osm_from_pbf.py` and `scripts/route_on_osm.py`).
 
 ### Stop IDs are platform-level, not station-level
 
@@ -186,10 +186,10 @@ Stated plainly, because the brief asks for it:
    reported as a relative `load_index`, never as passengers or a percentage.
 2. **Route identity from GPS.** The GPS `route_id` is unusable against GTFS.
    Routes are inferred geometrically from stop passages.
-3. **Route geometry.** `shapes.txt` is absent, so map paths are routed on
-   basemap road centerlines (99.7% of route pairs) rather than published
-   polylines. Pairs with no road path are omitted from the map, never drawn as a
-   straight chord.
+3. **Route geometry.** `shapes.txt` is absent, so map paths are routed on the
+   real OpenStreetMap Delhi road network (98.6% of route pairs) rather than
+   published polylines. Pairs with no road path are omitted from the map, never
+   drawn as a straight chord.
 4. **Live data.** Both datasets are historical October 2026 snapshots. Nothing
    in this project is a live feed, and the UI says so.
 5. **Weekday coverage.** Eleven GPS days are processed: a full week (Mon 5 Oct
