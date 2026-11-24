@@ -266,14 +266,14 @@ export default function Page() {
                       label="From"
                       value={from}
                       onChange={setFrom}
-                      suggestions={planner.search(from, 3).map((s) => s.name)}
+                      suggestions={planner.search(from, 6).map((s) => s.name)}
                     />
                     <Field
                       id="to"
                       label="To"
                       value={to}
                       onChange={setTo}
-                      suggestions={planner.search(to, 3).map((s) => s.name)}
+                      suggestions={planner.search(to, 6).map((s) => s.name)}
                     />
 
                     <div className="grid grid-cols-2 gap-6">
@@ -622,9 +622,51 @@ function Field({
   onChange: (v: string) => void;
   suggestions: string[];
 }) {
-  const show = suggestions.length > 0 && suggestions[0].toLowerCase() !== value.toLowerCase();
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const box = useRef<HTMLDivElement>(null);
+
+  // Close the list when focus leaves the field.
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const pick = (s: string) => {
+    onChange(s);
+    setOpen(false);
+    setActive(-1);
+  };
+
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault();
+      pick(suggestions[active]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  // Only offer a list once the user has typed something and the top match is
+  // not already the exact value.
+  const show =
+    open &&
+    value.trim().length > 0 &&
+    suggestions.length > 0 &&
+    suggestions[0].toLowerCase() !== value.trim().toLowerCase();
+
   return (
-    <div>
+    <div ref={box} className="relative">
       <label htmlFor={id} className="eyebrow">
         {label}
       </label>
@@ -632,25 +674,43 @@ function Field({
         id={id}
         name={id}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+          setActive(-1);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKey}
         autoComplete="off"
         spellCheck={false}
+        role="combobox"
+        aria-expanded={show}
+        aria-controls={`${id}-list`}
+        aria-autocomplete="list"
         placeholder="Station or landmark…"
         className="field mt-1"
       />
       {show && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {suggestions.slice(0, 2).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onChange(s)}
-              className="border border-line px-2 py-1 text-[10px] text-text-3 transition-colors hover:border-text-3 hover:text-text-2"
-            >
-              {s}
-            </button>
+        <ul
+          id={`${id}-list`}
+          role="listbox"
+          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto border border-line bg-ink-1 shadow-xl"
+        >
+          {suggestions.map((s, i) => (
+            <li key={s} role="option" aria-selected={i === active}>
+              <button
+                type="button"
+                onMouseEnter={() => setActive(i)}
+                onClick={() => pick(s)}
+                className={`block w-full px-3 py-2 text-left text-[12px] transition-colors ${
+                  i === active ? "bg-ink-3 text-text" : "text-text-2 hover:bg-ink-2"
+                }`}
+              >
+                {s}
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
