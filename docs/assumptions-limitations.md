@@ -137,7 +137,7 @@ API so a client can change the balance.
 
 | Limitation | Consequence |
 |---|---|
-| No `shapes.txt` in the feed | Map lines are routed on the real OpenStreetMap Delhi road network: 12,175 of 12,352 route pairs (98.6%) have a road path, and the rest are omitted (never drawn as a chord). An independent audit of 2.22 M sampled points gives a median distance of 0.08 m to the nearest OSM road, p99 0.33 m, max 6.98 m, and zero pairs beyond 25 m |
+| No `shapes.txt` in the feed | Map lines are routed on the real OpenStreetMap Delhi road network: 12,175 of 12,352 route pairs (98.6%) have a road path. The 177 omitted are 154 pairs 3–34 km apart (a GTFS artefact, not real consecutive stops) and 23 same-place platform pairs within 366 m where the bus must drive around a divided road. None is drawn as a chord. An independent audit of 2.22 M sampled points gives a median distance of 0.08 m to the nearest OSM road, p99 0.33 m, max 6.98 m, zero pairs beyond 25 m, and zero links that are not on a road |
 | No live feed | Everything is a historical October 2026 snapshot |
 | Eleven days of GPS | A full week plus three later Thursdays; no seasonal effects |
 | No bus length data | Capacity cannot be adjusted per vehicle class |

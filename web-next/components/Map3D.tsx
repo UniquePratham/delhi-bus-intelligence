@@ -70,7 +70,12 @@ export default function Map3D({
   const [ready, setReady] = useState(false);
   // Two different honesty problems, reported separately: a pair with no road
   // geometry at all, and a short break where two mapped fragments meet.
-  const [routeNotes, setRouteNotes] = useState({ missingPairs: 0, linkGaps: 0, maxGapM: 0 });
+  const [routeNotes, setRouteNotes] = useState({
+    missingPairs: 0,
+    drawnPairs: 0,
+    linkGaps: 0,
+    maxGapM: 0,
+  });
 
   // `onLoaded` is typically an inline arrow, so its identity changes on every
   // render. Holding it in a ref keeps the map-init effect from tearing the map
@@ -263,6 +268,7 @@ export default function Map3D({
     const points: GeoJSON.Feature[] = [];
     const markedStops = new Set<number>();
     let missingPairs = 0;
+    let drawnPairs = 0;
     let linkGaps = 0;
     let maxGapM = 0;
     let lastPoint: [number, number] | null = null;
@@ -294,6 +300,7 @@ export default function Map3D({
           missingPairs++;
           continue;
         }
+        drawnPairs++;
         // Join this pair to the previous one. Consecutive pairs share a stop,
         // so their endpoints are usually within a few metres. Bridging that
         // small gap keeps the route one continuous line; breaking on it is what
@@ -351,7 +358,7 @@ export default function Map3D({
       }
     }
     if (!segments.length) {
-      setRouteNotes({ missingPairs, linkGaps, maxGapM });
+      setRouteNotes({ missingPairs, drawnPairs, linkGaps, maxGapM });
       if (holder.current) {
         holder.current.dataset.routeReady = "true";
         holder.current.dataset.routeDrawn = "false";
@@ -486,7 +493,7 @@ export default function Map3D({
       holder.current.dataset.routeMaxGapM = String(Math.round(maxGapM));
       holder.current.dataset.routeBelowBuildings = String(buildingIndex < 0 || routeIndex < buildingIndex);
     }
-    setRouteNotes({ missingPairs, linkGaps, maxGapM });
+    setRouteNotes({ missingPairs, drawnPairs, linkGaps, maxGapM });
   }, [journey]);
 
   useEffect(() => {
@@ -720,6 +727,18 @@ export default function Map3D({
         role="img"
         aria-label="Map of the planned bus journey"
       />
+      {routeNotes.missingPairs > 0 && (
+        <div
+          data-route-notes
+          className="pointer-events-none absolute left-1/2 top-5 z-10 w-max max-w-[min(420px,calc(100%-2.5rem))] -translate-x-1/2 glass px-3 py-2"
+        >
+          <span className="mono text-[10px] leading-relaxed text-text-3">
+            {routeNotes.missingPairs} of this route&rsquo;s{" "}
+            {routeNotes.missingPairs + routeNotes.drawnPairs} stretches have no
+            road path and are not drawn
+          </span>
+        </div>
+      )}
     </div>
   );
 }

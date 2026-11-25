@@ -197,18 +197,26 @@ Read [technical-note.md](docs/technical-note.md) for the full method.
   topology and one-way tags. Each station is projected onto the nearest road
   segment (median offset 3.7 m) rather than snapped to the nearest node, so
   every drawn point is on a road by construction and consecutive pairs share an
-  exact endpoint. 12,175 of 12,352 pairs (98.6%) get a path; the 23 with no path
-  and 154 whose stations are more than 3 km apart are omitted from the map and
-  counted on screen, never drawn as a shortcut.
+  exact endpoint. 12,175 of 12,352 pairs (98.6%) get a path. The 177 omitted
+  pairs are explained, not hidden (`scripts/explain_omitted_pairs.py`):
+  **154** are stations 3–34 km apart, which are not real consecutive stops but a
+  GTFS artefact; **23** are same-place platform pairs within 366 m of each other
+  (e.g. "Ram Prastha Temple → Ram Prastha Temple", 117 m apart but 5.9 km by
+  road) where the bus must drive around to the correct carriageway of a divided
+  road. None is drawn as a shortcut, and when a planned journey contains one the
+  map says so on screen ("1 of this route's 38 stretches have no road path and
+  are not drawn"), verified by `scripts/check_omission_note.py`.
 
   An independent audit (`scripts/audit_osm_roads.py`) samples 2.22 M points
   along the drawn lines at 10 m spacing and measures the distance to the nearest
   OSM road: **median 0.08 m, p90 0.23 m, p99 0.33 m, max 6.98 m, and zero pairs
-  with any point beyond 25 m**. Zero pairs are drawn as a bare station-to-station
-  chord. All three demo routes are complete and continuous: 0 missing pairs,
-  0 breaks, 0 m worst gap. Where the road genuinely goes around a barrier the
-  line follows it — High Court to Zoo is 217 m apart and 1,924 m by road, which
-  is what a bus actually drives.
+  with any point beyond 25 m**. Every drawn link is either an actual OSM edge
+  (379,432), a station's projection onto its road segment (25,747), or a
+  zero-length link that draws nothing (333) — **zero links are not on a road**.
+  Zero pairs are drawn as a bare station-to-station chord. All three demo routes
+  are complete and continuous: 0 missing pairs, 0 breaks, 0 m worst gap. Where
+  the road genuinely goes around a barrier the line follows it — High Court to
+  Zoo is 217 m apart and 1,924 m by road, which is what a bus actually drives.
 * **No Google Maps comparison.** Its terms forbid scraping, and a car route is
   not a bus route. Validation uses 400 real observed bus trips instead.
 
@@ -302,7 +310,10 @@ python scripts/ui_smoke.py            # map UI renders in a real browser
 | Build the OSM Delhi road graph | `python scripts/build_osm_from_pbf.py` |
 | Route every station pair on OSM | `python scripts/route_on_osm.py` |
 | On-road audit of every drawn point | `python scripts/audit_osm_roads.py` |
+| Explain every omitted pair | `python scripts/explain_omitted_pairs.py` |
 | Demo routes are continuous | `python scripts/check_continuity.py` |
+| Omitted stretches are reported in the UI | `python scripts/check_omission_note.py` |
+| That note does not collide with map chrome | `python scripts/check_note_layout.py` |
 
 `scripts/route_on_roads.py` and the older two-stage pipeline
 (`build_route_geometry.py`, `ensure_route_geometry.py`, `snap_guide_to_roads.py`

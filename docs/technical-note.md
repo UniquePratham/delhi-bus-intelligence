@@ -200,11 +200,18 @@ but a single generic word like "Terminal" cannot link two unrelated places.
    (`scripts/audit_osm_roads.py`, 20 m road pieces, 2.22 M sampled points along
    the drawn lines at 10 m spacing) measures the distance from every drawn point
    to the nearest OSM road: median 0.08 m, p90 0.23 m, p99 0.33 m, max 6.98 m,
-   and zero pairs with any point beyond 25 m. Zero pairs are drawn as a bare
-   chord. 12,175 of 12,352 pairs (98.6%) get a path; the 23 with no path and the
-   154 whose stations are more than 3 km apart are omitted from the map and
-   counted on screen rather than drawn as a shortcut. All three demo routes are
-   complete and continuous: 0 missing pairs, 0 breaks, 0 m worst gap.
+   and zero pairs with any point beyond 25 m. Every drawn link is either an
+   actual OSM edge (379,432), a station's projection onto its road segment
+   (25,747), or a zero-length link that draws nothing (333) — zero links are not
+   on a road, and zero pairs are drawn as a bare chord.
+
+   12,175 of 12,352 pairs (98.6%) get a path. The 177 omitted pairs are
+   explained rather than hidden (`scripts/explain_omitted_pairs.py`): 154 are
+   stations 3–34 km apart, which are not real consecutive stops but a GTFS
+   artefact; 23 are same-place platform pairs within 366 m of each other where
+   the bus must drive around to the correct carriageway of a divided road. All
+   three demo routes are complete and continuous: 0 missing pairs, 0 breaks,
+   0 m worst gap.
 2. **Crowding coverage.** 63% of routes have any crowding estimate, and 87% of
    cells are low confidence. 909 ticket route strings have no GTFS route at all.
 3. **No live data.** Everything is a historical October 2026 snapshot.

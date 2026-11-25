@@ -98,6 +98,15 @@ def main() -> int:
         (float(np.float32(xs[i])), float(np.float32(ys[i]))): node_ids[i]
         for i in range(len(node_ids))
     }
+    # Distinct OSM nodes can share identical coordinates (a dual-carriageway
+    # junction, a duplicated vertex). A dict keyed by position then maps two
+    # nodes to one key, and a link between them reads as a self-link that is
+    # not an edge. Resolve a position to the *set* of nodes there instead.
+    nodes_at: dict[tuple[float, float], set[str]] = {}
+    for i in range(len(node_ids)):
+        nodes_at.setdefault(
+            (float(np.float32(xs[i])), float(np.float32(ys[i]))), set()
+        ).add(node_ids[i])
 
     con = duckdb.connect(str(REF), read_only=True)
     station_pt = {
@@ -114,7 +123,7 @@ def main() -> int:
     missing = 0
     bad_pairs = 0
     worst: list[tuple[int, int, float]] = []
-    link_kind = {"road": 0, "projection": 0, "not-road": 0}
+    link_kind = {"road": 0, "projection": 0, "zero-length": 0, "not-road": 0}
     chord_like = 0
 
     for i in range(n):
@@ -144,6 +153,21 @@ def main() -> int:
                 # One end is a station's projection point on a road segment and
                 # the other is that segment's endpoint: a real road link.
                 link_kind["projection"] += 1
+            elif u is not None and v is not None:
+                # Both ends resolve to real nodes. Distinct OSM nodes can share
+                # identical coordinates, so a single-node lookup reports a
+                # self-link that is not an edge. Accept the link if any node at
+                # one end connects to any node at the other.
+                us = nodes_at[(float(np.float32(ax)), float(np.float32(ay)))]
+                vs = nodes_at[(float(np.float32(bx)), float(np.float32(by)))]
+                if any((index[p], index[q]) in edge_set for p in us for q in vs):
+                    link_kind["road"] += 1
+                elif ax == bx and ay == by:
+                    # Zero-length: both endpoints at one position, so nothing is
+                    # drawn. Not a road link, but not a shortcut either.
+                    link_kind["zero-length"] += 1
+                else:
+                    link_kind["not-road"] += 1
             else:
                 link_kind["not-road"] += 1
             seg_m = math.hypot(
@@ -181,6 +205,7 @@ def main() -> int:
     print(
         f"drawn links: on-an-OSM-edge={link_kind['road']:,} "
         f"station-projection={link_kind['projection']:,} "
+        f"zero-length={link_kind['zero-length']:,} "
         f"not-an-edge={link_kind['not-road']:,}"
     )
     print(f"pairs drawn as a bare station-to-station chord: {chord_like}")
